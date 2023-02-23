@@ -56,6 +56,10 @@ class Button(GUI_Element):
 class Text_Input(GUI_Element):
     pass
 
+def print_coordinates(py5=None):
+    """"print the currently moused over coordinates"""
+    print(f'x: {py5.mouse_x} y: {py5.mouse_y}')
+
 if __name__=='__main__':
     import py5
     
@@ -74,6 +78,7 @@ if __name__=='__main__':
         
     def draw():
         [button.run() for button in py5.get_current_sketch().buttons]
+        #print_coordinates(py5)
     
     py5.run_sketch()
 
