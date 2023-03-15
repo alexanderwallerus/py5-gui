@@ -27,9 +27,10 @@ class GUI_Element:
         self.p.fill(*self.text_fill);   self.p.stroke(*self.text_stroke)
 
 class Button(GUI_Element):
-    def __init__(self, execute_func=None, **kwargs):
+    def __init__(self, execute_func=None, func_args=None, func_kwargs=None, **kwargs):
         """You can provide a function to be triggered by this button with execute_func."""
         w = kwargs['py5'].text_width(kwargs['label'])
+        self.func_args, self.func_kwargs = func_args, func_kwargs
         super().__init__(**kwargs, w=w)
 
         self.execute_func = execute_func
@@ -42,7 +43,8 @@ class Button(GUI_Element):
         if mouse_in and self.p.is_mouse_pressed:
             pressed = True
             if not self.prev_mouse_pressed:
-                self.execute_func()             
+                self.execute_func( *(self.func_args if self.func_args else ()),
+                                  **(self.func_kwargs if self.func_kwargs else {}))
         
         with self.p.push_style():
             self.set_style(highlight=mouse_in, pressed=pressed)
@@ -63,7 +65,8 @@ def print_coordinates(py5=None):
 if __name__=='__main__':
     import py5
     
-    print_text = lambda : print('triggered button')
+    confirm_click = lambda : print('triggered button')
+    print_text = lambda text, end='' : print(f'{text}{end}')
     change_background = lambda : py5.background(py5.random(255), py5.random(255), py5.random(255))
     
     def setup():
@@ -71,10 +74,13 @@ if __name__=='__main__':
         py5.background(0)
         #instead of using globals, the buttons can be stored within the sketch instance
         py5.get_current_sketch().buttons = [
+                    Button(py5=py5, label='simple button', pos=(20, 50),
+                           execute_func=confirm_click),
                     Button(py5=py5, label='change background', pos=(50, 0), 
                            execute_func=change_background),
                     Button(py5=py5, label='print to console', pos=(150, 30), 
-                           execute_func=print_text)]          
+                           execute_func=print_text,
+                           func_args=('first line',), func_kwargs={'end':'\nsecond line :)'})]
         
     def draw():
         [button.run() for button in py5.get_current_sketch().buttons]
