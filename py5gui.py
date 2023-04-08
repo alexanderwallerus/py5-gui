@@ -1,10 +1,12 @@
+import os
+
 class GUI_Element:
-    def __init__(self, py5=None, pos=(0,0), label='', w=30):
+    def __init__(self, py5=None, pos=(0,0), label='', w=30, h=30):
         self.x = pos[0]; self.y = pos[1]
         self.label = label
         self.p = py5
         
-        self.h = 30;     self.w = w+30
+        self.h = h;     self.w = w
         self.center = (self.x + self.w/2, self.y + self.h/2)
         
         self.fill = (0,);   self.stroke = (127,);   self.pressed_stroke=(255,)
@@ -29,7 +31,7 @@ class GUI_Element:
 class Button(GUI_Element):
     def __init__(self, execute_func=None, func_args=None, func_kwargs=None, **kwargs):
         """You can provide a function to be triggered by this button with execute_func."""
-        w = kwargs['py5'].text_width(kwargs['label'])
+        w = kwargs['py5'].text_width(kwargs['label']) + 30
         self.func_args, self.func_kwargs = func_args, func_kwargs
         super().__init__(**kwargs, w=w)
 
@@ -96,3 +98,48 @@ class Toggle(GUI_Element):
 
 class Slider(GUI_Element):
     pass
+
+class PrintZero:
+    """Print zero: An extended print function.
+       print0('my text', color=...) can be used as a print() function supporting colors.
+       Awailable colors are: white, bright_white, cyan, red, yellow, green, blue, magenta
+       
+       A call to print0 can also be provided with a priority= and a topic=. If a priority is provided, only a
+       print0() call that has a priority <= the priority_threshold or that has a topic among the string list of
+       priority_topics will actually get printed.
+       This enables using different levels and focus topics of debug information.
+       For example print0('mytext', color='red', priority=1) can be used for an important alarm.
+       The priority level goes from 1=most important to 3 or above=least important.
+       
+       You can print0.set_priority_threshold(number) and print0.set_priority_topics(['connection', 'user', ...])
+       to define the priority_threshold and priority_topics."""
+    
+    def __init__(self):
+        self.priority_threshold = 2
+        self.priority_topics = []
+        #Any call to os.system enables printing colors in the command prompt afterwards
+        os.system('')
+        self.styles = {'white': '\033[37m',
+                       'bright_white': '\033[97m',
+                       'cyan': '\033[96m',
+                       'red': '\033[91m',
+                       'yellow': '\033[33m',
+                       'green': '\033[92m',
+                       'blue': '\033[94m',
+                       'magenta': '\033[95m',
+                       'reset': '\033[0m'}
+
+    def set_priority_threshold(self, threshold:int):
+        """Only print0() with priority <= threshold will be printed"""
+        self.priority_threshold = threshold
+        return self
+
+    def set_priority_topics(self, topics:tuple|list):
+        self.priority_topics = topics
+        return self
+
+    def __call__(self, text:str, color:str='white', priority:int=0, topic:str=None):
+        if priority <= self.priority_threshold or topic in self.priority_topics:
+            print(f'{self.styles[color]}{text}{self.styles["reset"]}')
+
+print0 = PrintZero()
