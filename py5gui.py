@@ -404,9 +404,41 @@ class Plot:
     def reset(self):
         self.plots = []
 
-    def legend(col_lookup:dict, x, y):
-        # TODO: with a dictionary of label keys and color values, put them in a rect at x y
-        pass
+    def legend(self, col_lookup:dict, x, y, horizontal=True):
+        p = self.p
+        p.push_style()
+        p.stroke_weight(1);  p.text_size(14)
+        p.text_align(p.LEFT, p.TOP)
+        text_height = p.text_ascent() + p.text_descent()
+        labels = list(col_lookup.keys())
+        colors = list(col_lookup.values())
+        label_lengths = [p.text_width(label) for label in labels]
+        color_width = 20
+        offset = 10
+        if horizontal:            
+            total_length = sum(label_lengths) + len(labels)*color_width + len(labels)*offset*2
+            total_height = text_height
+        else:
+            total_length = p.text_width(max(labels, key=len)) + color_width + offset*2
+            total_height = len(labels) * (text_height)
+        p.fill(0);  p.stroke(255)
+        p.rect(x, y, total_length, total_height)
+        p.fill(255)
+        with p.push_matrix():
+            p.translate(x, y)
+            for i in range(len(labels)):
+                with p.push_style():
+                    p.no_stroke(); p.fill(*colors[i])
+                    p.translate(offset/2, 0)
+                    p.rect(0, 5, color_width, text_height-10)
+                p.translate(color_width + offset, 0)
+                p.text(labels[i], 0, -1)
+                p.translate(offset/2, 0)
+                if horizontal:
+                    p.translate(label_lengths[i], 0)
+                else:
+                    p.translate(-color_width - 2*offset, text_height)
+        p.pop_style()
 
 class PrintZero:
     """Print zero: An extended print function.
