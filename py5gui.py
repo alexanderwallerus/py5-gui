@@ -117,7 +117,7 @@ class Plot:
         self.x = x; self.y = y
         self.w = w; self.h = h
 
-        self.graphics = self.p.create_graphics(w, h, self.p.P2D)
+        self.graphics = self.p.create_graphics(w, h)
 
     def calc_dimensions(self, up_extra=0, left_extra=0, bottom_extra=0, to_graphics=False):
         if to_graphics:
@@ -381,7 +381,7 @@ class Plot:
     def create_fill_function(self, plt, p):
         if not plt['color']:
             set_fill = lambda i: p.fill(255)
-        elif self.is_numer(plt['color'][0]):
+        elif self.is_number(plt['color'][0]):
             set_fill = lambda i: p.fill(*plt['color'])
         else:
             # it is a list with a color for every data point
@@ -391,14 +391,14 @@ class Plot:
     def create_stroke_function(self, plt, p):
         if not plt['color']:
             set_stroke = lambda i: p.stroke(255)
-        elif self.is_numer(plt['color'][0]):
+        elif self.is_number(plt['color'][0]):
             set_stroke = lambda i: p.stroke(*plt['color'])
         else:
             # it is a list with a color for every data point
             set_stroke = lambda i: p.stroke(*plt['color'][i])
         return set_stroke
 
-    def is_numer(self, var):
+    def is_number(self, var):
         return isinstance(var, int) or isinstance(var, float)
 
     def reset(self):
