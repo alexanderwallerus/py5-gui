@@ -7,5 +7,5 @@
 * `pip install ./`
 * Update to the current version with:
 * `pip install --force-reinstall git+https://github.com/alexanderwallerus/py5-gui@main`
-* py5gui also contains an extended print function - print0()
+* py5gui also contains plotting functionalities and an extended print function - print0()
 

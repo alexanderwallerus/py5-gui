@@ -30,11 +30,14 @@ def draw():
     plt0.plot(xs, ys1, color=(255, 0, 0))
     plt0.scatter(xs, scatter_y, diameter=7)
     plt0.show(title='3 plots', xlabel='x axis', ylabel='y axis')
-    plt0.legend({'graph 0': (0, 255, 255), 'graph 1': (255, 0, 0), 'scatter': (255,)},
-                10, 465, horizontal=False)
+    legend = py5gui.legend(py5, {'graph 0': (0, 255, 255), 'graph 1': (255, 0, 0), 'scatter': (255,)},
+                           10, 465, horizontal=False, to_graphics=True)
+    py5.image(legend, 10, 465)
+
+    py5gui.legend(py5, {'red': (255, 0, 0)}, 10, 535, frame=False)
 
     plt1.axvline(vlines, color=(255, 255, 0))
-    plt1.scatter(xs, scatter_choice, color=scatter_col)#, order=['a', 'b', 'c', 'd'])
+    plt1.scatter(xs, scatter_choice, color=scatter_col, marker='line', stroke_weight=1)#, order=['a', 'b', 'c', 'd'])
     plt1.show(x_decimals=0, show_outline=True)
 
     # # Plotting to py5image Example 

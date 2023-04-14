@@ -150,12 +150,14 @@ class Plot:
         self.plots.append({'xs': np.array(xs), 'ys': np.array(ys), 'color': color,
                            'type': 'lines', 'stroke weight': stroke_weight})
 
-    def scatter(self, xs:list, ys:list, color:list=None, diameter=7, order=None, labels=None):
+    def scatter(self, xs:list, ys:list, color:list=None, diameter=7, 
+                order=None, marker='circle', stroke_weight=1, labels=None):
         if len(xs) == 0 or len(xs) != len(ys):
             return
         ys = np.array(ys) if not isinstance(ys[0], str) else ys
-        self.plots.append({'xs': np.array(xs), 'ys': ys, 'color': color,
-                           'type': 'scatter', 'diameter': diameter, 'order': order})
+        self.plots.append({'xs': np.array(xs), 'ys': ys, 'color': color, 'type': 'scatter',
+                           'diameter': diameter, 'marker': marker, 'stroke weight': stroke_weight,
+                           'order': order})
     
     def axvline(self, xs:list, color=None, stroke_weight=1):
         if len(xs) == 0:
@@ -350,11 +352,18 @@ class Plot:
                 with p.push_style():
                     # TODO: If plt['labels'] != None: make a lookup dictionary with a rand bright color for each
                     # unique label - use list(set(labels)) to get uniques and provide the lookup as set_fill
-                    set_fill = self.create_fill_function(plt, p)
-                    p.no_stroke()
-                    for i in range(xs.shape[0]):
-                        set_fill(i)
-                        p.circle(xcoords[i], ycoords[i], plt['diameter'])
+                    if plt['marker'] == 'circle':
+                        set_fill = self.create_fill_function(plt, p)
+                        p.no_stroke()
+                        for i in range(xs.shape[0]):
+                            set_fill(i)
+                            p.circle(xcoords[i], ycoords[i], plt['diameter'])
+                    elif plt['marker'] == 'line':
+                        set_stroke = self.create_stroke_function(plt, p)
+                        p.stroke_weight(plt['stroke weight'])
+                        for i in range(xs.shape[0]):
+                            set_stroke(i)
+                            p.line(xcoords[i], ycoords[i] -5, xcoords[i], ycoords[i] +5)
 
             #-------------------------GRAPH-------------------------
             if plt['type'] == 'lines' and not y_categorical:
@@ -404,41 +413,51 @@ class Plot:
     def reset(self):
         self.plots = []
 
-    def legend(self, col_lookup:dict, x, y, horizontal=True):
-        p = self.p
-        p.push_style()
+def legend(py5, col_lookup:dict, x, y, horizontal=True, to_graphics=False, frame=True):
+    p = py5
+    with p.push_style():
         p.stroke_weight(1);  p.text_size(14)
-        p.text_align(p.LEFT, p.TOP)
         text_height = p.text_ascent() + p.text_descent()
-        labels = list(col_lookup.keys())
-        colors = list(col_lookup.values())
-        label_lengths = [p.text_width(label) for label in labels]
-        color_width = 20
-        offset = 10
-        if horizontal:            
-            total_length = sum(label_lengths) + len(labels)*color_width + len(labels)*offset*2
-            total_height = text_height
-        else:
-            total_length = p.text_width(max(labels, key=len)) + color_width + offset*2
-            total_height = len(labels) * (text_height)
-        p.fill(0);  p.stroke(255)
-        p.rect(x, y, total_length, total_height)
-        p.fill(255)
-        with p.push_matrix():
-            p.translate(x, y)
-            for i in range(len(labels)):
-                with p.push_style():
-                    p.no_stroke(); p.fill(*colors[i])
-                    p.translate(offset/2, 0)
-                    p.rect(0, 5, color_width, text_height-10)
-                p.translate(color_width + offset, 0)
-                p.text(labels[i], 0, -1)
+    labels = list(col_lookup.keys())
+    colors = list(col_lookup.values())
+    label_lengths = [p.text_width(label) for label in labels]
+    color_width = 20
+    offset = 10
+    if horizontal:            
+        total_length = sum(label_lengths) + len(labels)*color_width + len(labels)*offset*2
+        total_height = text_height
+    else:
+        total_length = p.text_width(max(labels, key=len)) + color_width + offset*2
+        total_height = len(labels) * (text_height)
+    if to_graphics:
+        x, y = 0, 0
+        p = py5.create_graphics(int(total_length), int(total_height))
+        p.begin_draw()
+    p.push_style()
+    p.stroke_weight(1);  p.text_size(14)
+    p.text_align(p.LEFT, p.TOP)
+    p.fill(0);  p.stroke(255)
+    if frame:
+        p.rect(x, y, total_length-1, total_height-1)
+    p.fill(255)
+    with p.push_matrix():
+        p.translate(x, y)
+        for i in range(len(labels)):
+            with p.push_style():
+                p.no_stroke(); p.fill(*colors[i])
                 p.translate(offset/2, 0)
-                if horizontal:
-                    p.translate(label_lengths[i], 0)
-                else:
-                    p.translate(-color_width - 2*offset, text_height)
-        p.pop_style()
+                p.rect(0, 5, color_width, text_height-10)
+            p.translate(color_width + offset, 0)
+            p.text(labels[i], 0, -1)
+            p.translate(offset/2, 0)
+            if horizontal:
+                p.translate(label_lengths[i], 0)
+            else:
+                p.translate(-color_width - 2*offset, text_height)
+    p.pop_style()
+    if to_graphics:
+        p.end_draw()
+        return p
 
 class PrintZero:
     """Print zero: An extended print function.
