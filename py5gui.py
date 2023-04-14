@@ -418,17 +418,17 @@ def legend(py5, col_lookup:dict, x, y, horizontal=True, to_graphics=False, frame
     with p.push_style():
         p.stroke_weight(1);  p.text_size(14)
         text_height = p.text_ascent() + p.text_descent()
-    labels = list(col_lookup.keys())
-    colors = list(col_lookup.values())
-    label_lengths = [p.text_width(label) for label in labels]
-    color_width = 20
-    offset = 10
-    if horizontal:            
-        total_length = sum(label_lengths) + len(labels)*color_width + len(labels)*offset*2
-        total_height = text_height
-    else:
-        total_length = p.text_width(max(labels, key=len)) + color_width + offset*2
-        total_height = len(labels) * (text_height)
+        labels = list(col_lookup.keys())
+        colors = list(col_lookup.values())
+        label_lengths = [p.text_width(label) for label in labels]
+        color_width = 20
+        offset = 10
+        if horizontal:
+            total_length = sum(label_lengths) + len(labels)*color_width + len(labels)*offset*2
+            total_height = text_height
+        else:
+            total_length = p.text_width(max(labels, key=len)) + color_width + offset*2
+            total_height = len(labels) * (text_height)
     if to_graphics:
         x, y = 0, 0
         p = py5.create_graphics(int(total_length), int(total_height))
