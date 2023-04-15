@@ -257,22 +257,47 @@ class Plot:
                 else:
                     if y_categorical != isinstance(plt['ys'][0], str):
                         print('mixing numerical and categorical y axis data - aborting plot')
+                        self.reset()
+                        if to_py5image:
+                            p.end_draw()
+                            return p
                         return
             if 'order' in plt:
                 order = plt['order']
 
-        #-------------------------CALC CIMENSIONS AND DRAW TEXT-------------------------
+        #-------------------------COLLECT ALL XS AND YS-------------------------
+        all_xs = np.array([])
+        for plt in self.plots:
+            all_xs = np.append(all_xs, plt['xs'])
 
+        if all_xs.shape == (0,):
+            print('the plot data is empty')
+            self.reset()
+            if to_py5image:
+                p.end_draw()
+                return p
+            return
+        min_all_xs = np.min(all_xs);    max_all_xs = np.max(all_xs)
+
+        if not y_categorical:
+            all_ys = np.array([])
+            for plt in self.plots:
+                all_ys = np.append(all_ys, plt['ys'])
+            min_all_ys = np.min(all_ys);    max_all_ys = np.max(all_ys)
+        else:
+            all_ys = []
+            for plt in self.plots:
+                all_ys.extend(plt['ys'])
+
+        #-------------------------CALC DIMENSIONS-------------------------
         p.no_fill();  p.stroke(255)
         p.stroke_weight(1);  p.text_size(14)
 
         if y_categorical:
-            widest_y_label = p.text_width(max(plt['ys'], key=len))
+            widest_y_label = p.text_width(max(all_ys, key=len))
         else:
-            y_nums = np.unique(np.array(plt['ys']))
-            maxn = np.max(y_nums);  minn = np.min(y_nums)
-            widest_y = maxn if maxn > np.abs(minn) else minn
-            decimals, form = self.find_decimals(minn, maxn, decimals=y_decimals)
+            widest_y = max_all_ys if max_all_ys > np.abs(min_all_ys) else min_all_ys
+            decimals, form = self.find_decimals(min_all_ys, max_all_ys, decimals=y_decimals)
             widest_y_label = p.text_width(f'{widest_y:.{decimals}{form}}')           
         
         text_height = p.text_ascent() + p.text_descent()
@@ -281,6 +306,15 @@ class Plot:
         bottom_extra = text_height if xlabel else 0
         self.calc_dimensions(up_extra=up_extra, left_extra=left_extra, bottom_extra=bottom_extra, to_graphics=to_py5image)    
 
+        #-------------------------FIND TICKS-------------------------
+        xticks = self.find_ticks(p, all_xs, self.xii, self.rii, decimals=x_decimals)
+        
+        if y_categorical:
+            yticks, ylookup = self.find_categorical_ticks(all_ys, self.yii, self.bii, horizontal=False, order=order)
+        else:
+            yticks = self.find_ticks(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
+
+        #-------------------------DRAW TEXT-------------------------
         with p.push_style():
             p.text_align(p.CENTER, p.CENTER)
             p.fill(255);    p.stroke(255)
@@ -295,31 +329,6 @@ class Plot:
                     p.translate(self.x + text_height/2, (self.y + (self.y+self.h))/2)
                     p.rotate(-p.HALF_PI)
                     p.text(ylabel, 0, 0)
-
-        #-------------------------FIND X TICKS-------------------------
-        all_xs = np.array([])
-        for plt in self.plots:
-            all_xs = np.append(all_xs, plt['xs'])
-
-        if all_xs.shape == (0,):
-            print('the plot data is empty')
-            self.reset()
-            return
-        min_all_xs = np.min(all_xs);    max_all_xs = np.max(all_xs)
-        xticks = self.find_ticks(p, all_xs, self.xii, self.rii, decimals=x_decimals)
-        
-        #-------------------------FIND Y TICKS-------------------------
-        if not y_categorical:
-            all_ys = np.array([])
-            for plt in self.plots:
-                all_ys = np.append(all_ys, plt['ys'])
-            min_all_ys = np.min(all_ys);    max_all_ys = np.max(all_ys)
-            yticks = self.find_ticks(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
-        else:
-            all_ys = []
-            for plt in self.plots:
-                all_ys.extend(plt['ys'])
-            yticks, ylookup = self.find_categorical_ticks(all_ys, self.yii, self.bii, horizontal=False, order=order)
         
         #-------------------------DRAW PLOT FRAME-------------------------
         if show_outline:
