@@ -126,9 +126,9 @@ class Plot:
             self.y = 0
         
         # inner sizes:
-        self.xi = self.x +80 + left_extra
+        self.xi = self.x +20 + left_extra
         self.yi = self.y +10 + up_extra
-        self.wi = self.w -100 - left_extra
+        self.wi = self.w -30 - left_extra
         self.hi = self.h -50 - up_extra - bottom_extra
         self.ri = self.xi + self.wi        #right inner
         self.bi = self.yi + self.hi        #bottom inner
@@ -165,20 +165,7 @@ class Plot:
         self.plots.append({'xs': np.array(xs), 'ys': np.array([]), 'color': color,
                            'type': 'vlines', 'stroke weight': stroke_weight})
 
-    def find_ticks(self, nums, start, end, horizontal=True, decimals=None):
-        # TODO: Could add an alternative find_ticks() more resembling matplotlib. If mpl plots data [0.31, ..., 1.67]
-        # it won't lerp ticks from A to B, but have ~3-8 ticks (depending on size) like [0.25, 0.75, 0.125, 0.175]
-        # => it will np.arange(lower, higher, tick_step) with the lower and upper being min(nums -%tick_step)
-        # and max(nums + 1 - %tick_step). The tick_step is in units of .2 or .5 or 1 or 10 or... (also seen .25)
-        # depending on the range dealt with to cover 3-8 ticks
-        if not horizontal:
-            # ! processing y coords are inverted
-            start, end = end, start
-        nums = np.array(nums)
-        # remove duplicates to not end up with multiple axis ticks of the same initial value
-        nums = np.unique(nums)
-        # find the widest number text
-        maxn = np.max(nums);  minn = np.min(nums)
+    def find_decimals(self, minn, maxn, decimals=None):
         form = 'f'
         if decimals == None:
             decimals = 0
@@ -195,12 +182,31 @@ class Plot:
                 decimals = 2
                 form = 'e'
 
+        return decimals, form
+
+    def find_ticks(self, p, nums, start, end, horizontal=True, decimals=None):
+        # TODO: Could add an alternative find_ticks() more resembling matplotlib. If mpl plots data [0.31, ..., 1.67]
+        # it won't lerp ticks from A to B, but have ~3-8 ticks (depending on size) like [0.25, 0.75, 0.125, 0.175]
+        # => it will np.arange(lower, higher, tick_step) with the lower and upper being min(nums -%tick_step)
+        # and max(nums + 1 - %tick_step). The tick_step is in units of .2 or .5 or 1 or 10 or... (also seen .25)
+        # depending on the range dealt with to cover 3-8 ticks
+        if not horizontal:
+            # ! processing y coords are inverted
+            start, end = end, start
+        nums = np.array(nums)
+        # remove duplicates to not end up with multiple axis ticks of the same initial value
+        nums = np.unique(nums)
+        # find the widest number text
+        maxn = np.max(nums);  minn = np.min(nums)
+        
+        decimals, form = self.find_decimals(minn, maxn, decimals=decimals)
+
         widest_num = maxn if maxn > np.abs(minn) else minn
         
         if horizontal:
-            num_width = self.p.text_width(f'{widest_num:.{decimals}{form}}') * 1.5
+            num_width = p.text_width(f'{widest_num:.{decimals}{form}}') * 1.5
         else:
-            num_width = self.p.text_ascent() * 2.5
+            num_width = p.text_ascent() * 2.5
         
         num_ticks = int(abs(end-start) / num_width)
         if nums.shape[0] < num_ticks:
@@ -256,14 +262,22 @@ class Plot:
                 order = plt['order']
 
         #-------------------------CALC CIMENSIONS AND DRAW TEXT-------------------------
-        # TODO: If a calc_label_width function gets modularized from the start of the find_ticks functions, we can already
-        # calc the max label width of all_ys from the y ticks functions and can improve the left_extra margin!
+
         p.no_fill();  p.stroke(255)
         p.stroke_weight(1);  p.text_size(14)
 
+        if y_categorical:
+            widest_y_label = p.text_width(max(plt['ys'], key=len))
+        else:
+            y_nums = np.unique(np.array(plt['ys']))
+            maxn = np.max(y_nums);  minn = np.min(y_nums)
+            widest_y = maxn if maxn > np.abs(minn) else minn
+            decimals, form = self.find_decimals(minn, maxn, decimals=y_decimals)
+            widest_y_label = p.text_width(f'{widest_y:.{decimals}{form}}')           
+        
         text_height = p.text_ascent() + p.text_descent()
         up_extra = text_height if title else 0
-        left_extra = text_height if ylabel else 0
+        left_extra = text_height + widest_y_label if ylabel else widest_y_label
         bottom_extra = text_height if xlabel else 0
         self.calc_dimensions(up_extra=up_extra, left_extra=left_extra, bottom_extra=bottom_extra, to_graphics=to_py5image)    
 
@@ -292,7 +306,7 @@ class Plot:
             self.reset()
             return
         min_all_xs = np.min(all_xs);    max_all_xs = np.max(all_xs)
-        xticks = self.find_ticks(all_xs, self.xii, self.rii, decimals=x_decimals)
+        xticks = self.find_ticks(p, all_xs, self.xii, self.rii, decimals=x_decimals)
         
         #-------------------------FIND Y TICKS-------------------------
         if not y_categorical:
@@ -300,7 +314,7 @@ class Plot:
             for plt in self.plots:
                 all_ys = np.append(all_ys, plt['ys'])
             min_all_ys = np.min(all_ys);    max_all_ys = np.max(all_ys)
-            yticks = self.find_ticks(all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
+            yticks = self.find_ticks(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
         else:
             all_ys = []
             for plt in self.plots:
