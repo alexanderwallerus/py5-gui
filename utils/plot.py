@@ -290,10 +290,8 @@ class Plot:
 
             #-------------------------GRAPH-------------------------
             if plt['type'] == 'lines' and not y_categorical:
-                if xs.shape == (1,):
-                    # not enough points to draw a line
-                    self.reset()
-                else:
+                if xs.shape != (1,):
+                    # at shape == (1,) there are not enough points to draw a line
                     xcoords = remap(xs, min_all_xs, max_all_xs, self.xii, self.rii)
                     ycoords = remap(ys, min_all_ys, max_all_ys, self.bii, self.yii)
                     # ! processing y coords are inverted
@@ -301,9 +299,9 @@ class Plot:
                     with p.push_style():
                         set_stroke = self.create_stroke_function(plt, p)
                         p.stroke_weight(plt['stroke weight'])
-                        for i in range(xs.shape[0] -1):
+                        for i in range(1, xs.shape[0]):
                             set_stroke(i)
-                            p.line(xcoords[i], ycoords[i], xcoords[i+1], ycoords[i+1],)
+                            p.line(xcoords[i-1], ycoords[i-1], xcoords[i], ycoords[i],)
         
         self.reset()
         if to_py5image:
