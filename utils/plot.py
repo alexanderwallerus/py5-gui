@@ -9,7 +9,12 @@ def remap(value, inFrom, inTo, outFrom, outTo):
 class Plot:
     """While matplotlib can be incorporated into py5 sketches with its agg backend, updating its plots is very
        computationally expensive. This class offers a minimal set of plotting functionalities for situations
-       where the goal is to avoid matplotlib's performance impact on the larger program."""
+       where the goal is to avoid matplotlib's performance impact on the larger program.
+       
+       .plot(), .scatter() and .axvline() can be used to enter xs and ys data, which will be plotted together
+       upon the following call to .show(). by default .plot(), .scatter(). and .axvline will use the left y_axis=0, but you
+       can use y_axis=1 to have their data be plotted on a secondary y axis, to keep track of different ranges of numerical 
+       results, or even mix numerical and categorical data in the same plot."""
     def __init__(self, py5, x, y, w, h):
         self.plots = []     #contains dicts of {'xs', 'ys', 'cols', 'type'}
 
@@ -19,7 +24,7 @@ class Plot:
 
         self.graphics = self.p.create_graphics(w, h)
 
-    def calc_dimensions(self, up_extra=0, left_extra=0, bottom_extra=0, to_graphics=False):
+    def calc_dimensions(self, up_extra=0, left_extra=0, bottom_extra=0, right_extra=0, to_graphics=False):
         if to_graphics:
             # offset the x and y positions to 0
             self.x = 0
@@ -28,7 +33,7 @@ class Plot:
         # inner sizes:
         self.xi = self.x +20 + left_extra
         self.yi = self.y +10 + up_extra
-        self.wi = self.w -30 - left_extra
+        self.wi = self.w -30 - left_extra - right_extra
         self.hi = self.h -50 - up_extra - bottom_extra
         self.ri = self.xi + self.wi        #right inner
         self.bi = self.yi + self.hi        #bottom inner
@@ -44,26 +49,26 @@ class Plot:
 
     #-------------------------DATA ENTRY FUNCTIONS-------------------------
 
-    def plot(self, xs:list, ys:list, color=None, stroke_weight=1):
+    def plot(self, xs:list, ys:list, color=None, stroke_weight=1, y_axis=0):
         if len(xs) == 0 or len(xs) != len(ys):
             return
         self.plots.append({'xs': np.array(xs), 'ys': np.array(ys), 'color': color,
-                           'type': 'lines', 'stroke weight': stroke_weight})
+                           'type': 'lines', 'stroke weight': stroke_weight, 'y axis': y_axis})
 
     def scatter(self, xs:list, ys:list, color:list=None, diameter=7, 
-                order=None, marker='circle', stroke_weight=1, labels=None):
+                order=None, marker='circle', stroke_weight=1, y_axis=0):
         if len(xs) == 0 or len(xs) != len(ys):
             return
         ys = np.array(ys) if not isinstance(ys[0], str) else ys
         self.plots.append({'xs': np.array(xs), 'ys': ys, 'color': color, 'type': 'scatter',
                            'diameter': diameter, 'marker': marker, 'stroke weight': stroke_weight,
-                           'order': order})
+                           'order': order, 'y axis': y_axis})
     
-    def axvline(self, xs:list, color=None, stroke_weight=1):
+    def axvline(self, xs:list, color=None, stroke_weight=1, y_axis=0):
         if len(xs) == 0:
             return
-        self.plots.append({'xs': np.array(xs), 'ys': np.array([]), 'color': color,
-                           'type': 'vlines', 'stroke weight': stroke_weight})
+        self.plots.append({'xs': np.array(xs), 'ys': [], 'color': color,
+                           'type': 'vlines', 'stroke weight': stroke_weight, 'y axis': y_axis})
 
     def find_decimals(self, minn, maxn, decimals=None):
         form = 'f'
@@ -84,7 +89,7 @@ class Plot:
 
         return decimals, form
 
-    def find_ticks(self, p, nums, start, end, horizontal=True, decimals=None):
+    def tick_pos_labels(self, p, nums, start, end, horizontal=True, decimals=None):
         # TODO: Could add an alternative find_ticks() more resembling matplotlib. If mpl plots data [0.31, ..., 1.67]
         # it won't lerp ticks from A to B, but have ~3-8 ticks (depending on size) like [0.25, 0.75, 0.125, 0.175]
         # => it will np.arange(lower, higher, tick_step) with the lower and upper being min(nums -%tick_step)
@@ -121,7 +126,7 @@ class Plot:
             tick_labels = [f'{tick_label:.{decimals}{form}}' for tick_label in tick_labels]
         return list(zip(tick_positions, tick_labels))
 
-    def find_categorical_ticks(self, labels, start, end, order=None, horizontal=False):
+    def tick_pos_labels_categorical(self, labels, start, end, order=None, horizontal=False):
         if not horizontal:
             # ! processing y coords are inverted
             start, end = end, start
@@ -135,9 +140,41 @@ class Plot:
         
         return list(zip(tick_positions, uniques)), tick_lookup
 
-    def show(self, x_decimals=None, y_decimals=None, title=None, xlabel=None, ylabel=None, to_py5image=False,
-             show_outline=False, show_helper_lines=False):
+    def check_categorical_numerical(self, plots):
+        plotable = True
+        categorical = None
+        order = None
+        for plt in plots:
+            # exclude plots like vlines, which don't have y data
+            if len(plt['ys']) != 0:
+                if categorical == None:
+                    # define y_categorical based on the first plt
+                    categorical = True if isinstance(plt['ys'][0], str) else False
+                else:
+                    if categorical != isinstance(plt['ys'][0], str):
+                        print('mixing numerical and categorical y axis data - aborting plot')
+                        plotable = False
+                        self.reset()
+                       
+            if 'order' in plt:
+                order = plt['order']
+        if categorical == None and len(plots) > 0:
+            # no y data encountered, i.e. a vlines only plot => simulate y data
+            categorical = True
+            for plt in plots:
+                plt['ys'] = ['' for x in plt['xs']]
+        return categorical, order, plotable
 
+
+    def show(self, x_decimals=None, title=None, xlabel=None, ylabel=None, y_decimals=None,
+             ylimit=(None, None), to_py5image=False, y_decimals_1=None, ylimit_1=(None, None), 
+             empty_warning=True, show_outline=False, show_helper_lines=False):
+        """If to_py5image=True, this function will not draw onto the plot's py5 instance, but instead return a py5_graphics
+        object with the plot, which can be used as an image, when the plot doesn't need to be updated every frame.
+        .show() can also draw a title, xlabel, and ylabel if provided with a string argument.
+        .show() can further be provided with x_decimals= and y_decimals= for overriding the shown decimal places, and with a
+        ylimit=(lower, upper) to only plot numerical data above and/or below a certain point. 
+        ylimit=(-7, None) for example would only plot data points with a y of -7 or higher"""
         if not to_py5image:
             p = self.p
         else:
@@ -145,49 +182,84 @@ class Plot:
             p.begin_draw()
             p.background(0)
 
+        multi_y = [plt['y axis'] == 1 for plt in self.plots]
+        multi_y = True if True in multi_y else False
+
         #-------------------------NUMERICAL OR CATEGORICAL Y AXIS-------------------------
-        y_categorical = None
-        order = None
-        for plt in self.plots:
-            # exclude plots like vlines, which don't have y data
-            if len(plt['ys']) != 0:
-                if y_categorical == None:
-                    # define y_categorical based on the first plt
-                    y_categorical = True if isinstance(plt['ys'][0], str) else False
-                else:
-                    if y_categorical != isinstance(plt['ys'][0], str):
-                        print('mixing numerical and categorical y axis data - aborting plot')
-                        self.reset()
-                        if to_py5image:
-                            p.end_draw()
-                            return p
-                        return
-            if 'order' in plt:
-                order = plt['order']
+
+        plotable = [True, True]
+        plots = [plt for plt in self.plots if plt['y axis'] == 0]
+        y_categorical, order, plotable[0] = self.check_categorical_numerical(plots)
+
+        if multi_y:
+            plots_1 = [plt for plt in self.plots if plt['y axis'] == 1]
+            y_categorical_1, order_1, plotable[1] = self.check_categorical_numerical(plots_1)
+        
+        if False in plotable:
+            if to_py5image:
+                p.end_draw()
+                return p
+            return
 
         #-------------------------COLLECT ALL XS AND YS-------------------------
+        
         all_xs = np.array([])
-        for plt in self.plots:
-            all_xs = np.append(all_xs, plt['xs'])
+        if not y_categorical:
+            all_ys = np.array([])
+            for plt in plots:
+                if ylimit[0]:
+                    mask = plt['ys'] >= ylimit[0]
+                    plt['ys'] = plt['ys'][mask]
+                    plt['xs'] = plt['xs'][mask]
+                if ylimit[1]:
+                    mask = plt['ys'] <= ylimit[1]
+                    plt['ys'] = plt['ys'][mask]
+                    plt['xs'] = plt['xs'][mask]
+                all_xs = np.append(all_xs, plt['xs'])
+                all_ys = np.append(all_ys, plt['ys'])           
+        else:
+            all_ys = []
+            for plt in plots:
+                all_ys.extend(plt['ys'])
+                all_xs = np.append(all_xs, plt['xs'])
 
-        if all_xs.shape == (0,):
-            print('the plot data is empty')
+        all_xs_1 = np.array([])
+        if multi_y:
+            if not y_categorical_1:
+                all_ys_1 = np.array([])
+                for plt in plots_1:
+                    if ylimit_1[0]:
+                        mask = plt['ys'] >= ylimit_1[0]
+                        plt['ys'] = plt['ys'][mask]
+                        plt['xs'] = plt['xs'][mask]
+                    if ylimit_1[1]:
+                        mask = plt['ys'] <= ylimit_1[1]
+                        plt['ys'] = plt['ys'][mask]
+                        plt['xs'] = plt['xs'][mask]
+                    all_xs_1 = np.append(all_xs_1, plt['xs'])
+                    all_ys_1 = np.append(all_ys_1, plt['ys'])
+            else:
+                all_ys_1 = []
+                for plt in plots_1:
+                    all_xs_1 = np.append(all_xs_1, plt['xs'])
+                    all_ys_1.extend(plt['ys'])
+
+        # test if data exists before continuing further
+        total_xs = np.concatenate((all_xs, all_xs_1))       
+        if total_xs.shape == (0,):
+            if empty_warning:
+                print('the plot data is empty')
             self.reset()
             if to_py5image:
                 p.end_draw()
                 return p
             return
-        min_all_xs = np.min(all_xs);    max_all_xs = np.max(all_xs)
-
+        
+        min_all_xs = np.min(total_xs);    max_all_xs = np.max(total_xs)
         if not y_categorical:
-            all_ys = np.array([])
-            for plt in self.plots:
-                all_ys = np.append(all_ys, plt['ys'])
             min_all_ys = np.min(all_ys);    max_all_ys = np.max(all_ys)
-        else:
-            all_ys = []
-            for plt in self.plots:
-                all_ys.extend(plt['ys'])
+        if multi_y and not y_categorical_1:
+            min_all_ys_1 = np.min(all_ys_1);    max_all_ys_1 = np.max(all_ys_1)
 
         #-------------------------CALC DIMENSIONS-------------------------
         p.no_fill();  p.stroke(255)
@@ -196,23 +268,43 @@ class Plot:
         if y_categorical:
             widest_y_label = p.text_width(max(all_ys, key=len))
         else:
-            widest_y = max_all_ys if max_all_ys > np.abs(min_all_ys) else min_all_ys
             decimals, form = self.find_decimals(min_all_ys, max_all_ys, decimals=y_decimals)
-            widest_y_label = p.text_width(f'{widest_y:.{decimals}{form}}')           
+            widest_y_label = max(p.text_width(f'{min_all_ys:.{decimals}{form}}'),
+                                 p.text_width(f'{max_all_ys:.{decimals}{form}}'))
         
         text_height = p.text_ascent() + p.text_descent()
         up_extra = text_height if title else 0
         left_extra = text_height + widest_y_label if ylabel else widest_y_label
         bottom_extra = text_height if xlabel else 0
-        self.calc_dimensions(up_extra=up_extra, left_extra=left_extra, bottom_extra=bottom_extra, to_graphics=to_py5image)    
+        right_extra = 0
+
+        if multi_y:
+            if y_categorical_1:
+                widest_y_label_1 = p.text_width(max(all_ys_1, key=len))
+            else:
+                decimals_1, form_1 = self.find_decimals(min_all_ys_1, max_all_ys_1, decimals=y_decimals_1)
+                widest_y_label_1 = max(p.text_width(f'{min_all_ys_1:.{decimals_1}{form_1}}'),
+                                       p.text_width(f'{max_all_ys_1:.{decimals_1}{form_1}}'))
+            right_extra += widest_y_label_1 + 2
+
+        self.calc_dimensions(up_extra=up_extra, left_extra=left_extra, bottom_extra=bottom_extra, 
+                             right_extra=right_extra, to_graphics=to_py5image)    
 
         #-------------------------FIND TICKS-------------------------
-        xticks = self.find_ticks(p, all_xs, self.xii, self.rii, decimals=x_decimals)
+        total_xs = np.concatenate((all_xs, all_xs_1))
+        xticks = self.tick_pos_labels(p, total_xs, self.xii, self.rii, decimals=x_decimals)
         
+        ylookup, ylookup_1 = None, None
         if y_categorical:
-            yticks, ylookup = self.find_categorical_ticks(all_ys, self.yii, self.bii, horizontal=False, order=order)
+            yticks, ylookup = self.tick_pos_labels_categorical(all_ys, self.yii, self.bii, horizontal=False, order=order)
         else:
-            yticks = self.find_ticks(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
+            yticks = self.tick_pos_labels(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
+        
+        if multi_y:
+            if y_categorical_1:
+                yticks_1, ylookup_1 = self.tick_pos_labels_categorical(all_ys_1, self.yii, self.bii, horizontal=False, order=order_1)
+            else:
+                yticks_1 = self.tick_pos_labels(p, all_ys_1, self.yii, self.bii, horizontal=False, decimals=y_decimals_1)
 
         #-------------------------DRAW TEXT-------------------------
         with p.push_style():
@@ -248,9 +340,36 @@ class Plot:
             for yt in yticks:
                 p.line(self.xi, yt[0], self.xi-5, yt[0])
                 p.text(yt[1], self.xi -10, yt[0] - p.text_descent())
+            if multi_y:
+                p.text_align(p.LEFT, p.CENTER)
+                for yt in yticks_1:
+                    p.line(self.ri, yt[0], self.ri+5, yt[0])
+                    p.text(yt[1], self.ri +10, yt[0] - p.text_descent())
 
         #-------------------------DRAW PLOTS-------------------------
-        for plt in self.plots:
+        
+        if multi_y:
+            y_info = {'categorical': True, 'lookup': ylookup_1} if y_categorical_1 else \
+                     {'categorical': False, 'min': min_all_ys_1, 'max': max_all_ys_1}
+            self.draw_plots(p, plots_1, min_all_xs, max_all_xs, y_info)
+        y_info = {'categorical': True, 'lookup': ylookup} if y_categorical else \
+                 {'categorical': False, 'min': min_all_ys, 'max': max_all_ys}
+        self.draw_plots(p, plots, min_all_xs, max_all_xs, y_info)
+
+        self.reset()
+        if to_py5image:
+            p.end_draw()
+            return p
+
+    def draw_plots(self, p, plots, min_all_xs, max_all_xs, y_info):
+        """Draw all provided plots. """
+        if y_info['categorical']:
+            get_y_coords = lambda ys: [y_info['lookup'][y] for y in ys]
+        else:
+            get_y_coords = lambda ys: remap(ys, y_info['min'], y_info['max'], self.bii, self.yii)
+            # ! processing y coords are inverted
+
+        for plt in plots:
             xs = plt['xs']
             ys = plt['ys']
             #-------------------------VLINES-------------------------
@@ -263,14 +382,11 @@ class Plot:
                     for i in range(xs.shape[0]):
                         set_stroke(i)
                         p.line(xcoords[i], self.yii, xcoords[i], self.bii,)
-                
+
             #-------------------------SCATTER-------------------------
             if plt['type'] == 'scatter':
                 xcoords = remap(xs, min_all_xs, max_all_xs, self.xii, self.rii)
-                if not y_categorical:
-                    ycoords = remap(ys, min_all_ys, max_all_ys, self.bii, self.yii)
-                else:
-                    ycoords = [ylookup[y] for y in ys]
+                ycoords = get_y_coords(ys)
 
                 with p.push_style():
                     # TODO: If plt['labels'] != None: make a lookup dictionary with a rand bright color for each
@@ -287,28 +403,49 @@ class Plot:
                         for i in range(xs.shape[0]):
                             set_stroke(i)
                             p.line(xcoords[i], ycoords[i] -5, xcoords[i], ycoords[i] +5)
+                    elif plt['marker'] == 'cross':
+                        set_stroke = self.create_stroke_function(plt, p)
+                        p.stroke_weight(plt['stroke weight'])
+                        for i in range(xs.shape[0]):
+                            set_stroke(i)
+                            p.line(xcoords[i] -3, ycoords[i] -3, xcoords[i] +3, ycoords[i] +3)
+                            p.line(xcoords[i] -3, ycoords[i] +3, xcoords[i] +3, ycoords[i] -3)
+                    elif plt['marker'] == 'square':
+                        set_fill = self.create_fill_function(plt, p)
+                        p.no_stroke()
+                        p.rect_mode(p.CENTER)
+                        for i in range(xs.shape[0]):
+                            set_fill(i)
+                            p.rect(xcoords[i], ycoords[i], plt['diameter'], plt['diameter'])
+                    elif plt['marker'] == 'triangle':
+                        set_fill = self.create_fill_function(plt, p)
+                        p.no_stroke()
+                        p.rect_mode(p.CENTER)
+                        for i in range(xs.shape[0]):
+                            set_fill(i)
+                            p.triangle(xcoords[i]-3, ycoords[i]+3, xcoords[i], ycoords[i]-3, xcoords[i]+3, ycoords[i]+3,)
+                    else:
+                        # The marker is a custom character/text
+                        set_fill = self.create_fill_function(plt, p)
+                        p.no_stroke()
+                        p.text_align(p.CENTER, p.CENTER)
+                        for i in range(xs.shape[0]):
+                            set_fill(i)
+                            p.text(plt['marker'], xcoords[i], ycoords[i])            
 
             #-------------------------GRAPH-------------------------
-            if plt['type'] == 'lines' and not y_categorical:
-                if xs.shape == (1,):
-                    # not enough points to draw a line
-                    self.reset()
-                else:
+            if plt['type'] == 'lines':
+                if xs.shape != (1,):
+                    # at shape == (1,) there are not enough points to draw a line
                     xcoords = remap(xs, min_all_xs, max_all_xs, self.xii, self.rii)
-                    ycoords = remap(ys, min_all_ys, max_all_ys, self.bii, self.yii)
-                    # ! processing y coords are inverted
+                    ycoords = get_y_coords(ys)   
 
                     with p.push_style():
                         set_stroke = self.create_stroke_function(plt, p)
                         p.stroke_weight(plt['stroke weight'])
-                        for i in range(xs.shape[0] -1):
+                        for i in range(1, xs.shape[0]):
                             set_stroke(i)
-                            p.line(xcoords[i], ycoords[i], xcoords[i+1], ycoords[i+1],)
-        
-        self.reset()
-        if to_py5image:
-            p.end_draw()
-            return p
+                            p.line(xcoords[i-1], ycoords[i-1], xcoords[i], ycoords[i],)
 
     def create_fill_function(self, plt, p):
         if not plt['color']:
