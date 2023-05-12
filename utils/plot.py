@@ -207,14 +207,15 @@ class Plot:
         if not y_categorical:
             all_ys = np.array([])
             for plt in plots:
+                # if ylimits exist, min/max out data points.
                 if ylimit[0]:
-                    mask = plt['ys'] >= ylimit[0]
-                    plt['ys'] = plt['ys'][mask]
-                    plt['xs'] = plt['xs'][mask]
+                    plt['ys'] = np.maximum(plt['ys'], ylimit[0])
+                    # could mask out these data points like this; but would need another plotable check for if all data is filtered out
+                    # mask = plt['ys'] >= ylimit[0]
+                    # plt['ys'] = plt['ys'][mask]
+                    # plt['xs'] = plt['xs'][mask]
                 if ylimit[1]:
-                    mask = plt['ys'] <= ylimit[1]
-                    plt['ys'] = plt['ys'][mask]
-                    plt['xs'] = plt['xs'][mask]
+                    plt['ys'] = np.minimum(plt['ys'], ylimit[1])
                 all_xs = np.append(all_xs, plt['xs'])
                 all_ys = np.append(all_ys, plt['ys'])           
         else:
@@ -229,13 +230,9 @@ class Plot:
                 all_ys_1 = np.array([])
                 for plt in plots_1:
                     if ylimit_1[0]:
-                        mask = plt['ys'] >= ylimit_1[0]
-                        plt['ys'] = plt['ys'][mask]
-                        plt['xs'] = plt['xs'][mask]
+                        plt['ys'] = np.maximum(plt['ys'], ylimit_1[0])
                     if ylimit_1[1]:
-                        mask = plt['ys'] <= ylimit_1[1]
-                        plt['ys'] = plt['ys'][mask]
-                        plt['xs'] = plt['xs'][mask]
+                        plt['ys'] = np.minimum(plt['ys'], ylimit_1[1])
                     all_xs_1 = np.append(all_xs_1, plt['xs'])
                     all_ys_1 = np.append(all_ys_1, plt['ys'])
             else:
