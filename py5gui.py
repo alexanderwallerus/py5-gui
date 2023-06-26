@@ -1,5 +1,6 @@
 import os
 from utils.plot import Plot, legend
+import time
 
 def remap(value, inFrom, inTo, outFrom, outTo):
     if inFrom == inTo:
@@ -25,12 +26,15 @@ class GUI_Element:
         return True if self.p.mouse_x > self.x and self.p.mouse_x < self.x+self.w and \
                self.p.mouse_y > self.y and self.p.mouse_y < self.y+self.h else False
                
-    def set_style(self, highlight=False, pressed=False):
+    def set_style(self, highlight=False, pressed=False, align_left=False):
         self.p.stroke(*self.pressed_stroke) if pressed else self.p.stroke(*self.stroke)
         self.p.fill(*self.highlight_fill) if highlight else self.p.fill(0)
         self.p.stroke_weight(self.stroke_weight)
         self.p.rect_mode(self.p.CENTER)
-        self.p.text_align(self.p.CENTER, self.p.CENTER)
+        if align_left:
+            self.p.text_align(self.p.LEFT, self.p.CENTER)
+        else:
+            self.p.text_align(self.p.CENTER, self.p.CENTER)
         
     def set_text_style(self):
         self.p.fill(*self.text_fill);   self.p.stroke(*self.text_stroke)
@@ -64,7 +68,96 @@ class Button(GUI_Element):
         
         self.prev_mouse_pressed = self.p.is_mouse_pressed
 
+class Slider(object):
+    # TODO: turn this basic class into a GUI_ELEMENT
+    def __init__(self, leftCoord, topCoord, min, max, value=None):
+        if value == None:
+            self.value = (max + min) / 2
+        else:
+            self.value = value
+        self.leftCoord=leftCoord; self.topCoord=topCoord; self.min=min; self.max=max
+        self.w = 80; self.h=8
+        self.isDragged = False
+        
+    def run(self):
+        py5.push_style()
+        py5.fill(127);  py5.no_stroke()
+        py5.rect(self.leftCoord, self.topCoord, self.w, self.h, 4)   #radius=4
+        py5.ellipse_mode(py5.CENTER)
+        py5.stroke(255);    py5.fill(64)
+        elliPos = py5.remap(self.value, self.min, self.max, 
+                            self.leftCoord, self.leftCoord+self.w)
+        py5.ellipse(elliPos, self.topCoord + self.h/2, 22, 22)
+        if(not self.isDragged and py5.is_mouse_pressed):
+            if(py5.mouse_x >= self.leftCoord and py5.mouse_x <= self.leftCoord + self.w and
+               py5.mouse_y >= self.topCoord-10 and py5.mouse_y <= self.topCoord + 24):
+                self.isDragged = True
+        if(self.isDragged and not py5.is_mouse_pressed):
+            self.isDragged = False
+        if(self.isDragged):
+            newVal = py5.remap(py5.mouse_x, self.leftCoord, self.leftCoord + self.w,
+                               self.min, self.max)
+            self.value = py5.constrain(newVal, self.min, self.max)
+        py5.pop_style()
+        #print(f'current value: {self.value}')
+
 class Text_Input(GUI_Element):
+    def __init__(self, w=150, execute_func=None, func_args=None, func_kwargs=None, **kwargs):
+        """A minimal text input field. Click to select and write a text input.
+        Please note that the writing speed is limited by the set framerate, 
+        which typically will be below accustomed keyboard writing speed.
+        You can provide a function to be triggered when pressing enter with execute_func.
+        This function will receive the written input text as its first argument"""
+        super().__init__(**kwargs, w=w)
+        self.active = False
+        self.input = ''
+        self.prev_key_pressed = False, False
+        self.execute_func, self.func_args, self.func_kwargs = execute_func, func_args, func_kwargs
+
+    def run(self):
+        mouse_in = self.mouse_in()
+        pressed = False
+        if self.p.is_mouse_pressed:
+            if mouse_in: 
+                pressed = True
+                self.active = True
+            else:
+                self.active = False
+        
+        if self.active:
+            if not self.prev_key_pressed and self.p.is_key_pressed:
+                if self.p.key == '\n':
+                    if self.execute_func != None:
+                        self.execute_func(self.input, *(self.func_args if self.func_args else ()),
+                                                     **(self.func_kwargs if self.func_kwargs else {}))
+                elif self.p.key_code == 8:
+                    self.input = self.input[:-1]
+                else:
+                    self.input += self.p.key
+        
+        with self.p.push_style():
+            self.set_style(highlight=mouse_in, pressed=pressed, align_left=True)
+            self.p.rect(self.center[0], self.center[1], 
+                        self.w-self.stroke_weight, self.h-self.stroke_weight)
+            self.set_text_style()
+            if self.input == '':
+                if not self.active:
+                    self.p.fill(127)
+                    self.p.text('enter input', self.x+7, self.center[1])
+            else:
+                blink = '|' if time.time() % 2 > 1.0 and self.active else ''
+                self.p.rect_mode(self.p.CORNER)
+                self.p.text(self.input + blink, self.x+7, self.y, self.w-15, self.h)
+        
+        self.prev_key_pressed = self.p.is_key_pressed
+
+    def get_input(self):
+        return self.input
+
+class Selector(GUI_Element):
+    pass
+
+class Toggle(GUI_Element):
     pass
 
 def print_coordinates(py5=None):
@@ -77,6 +170,7 @@ if __name__=='__main__':
     confirm_click = lambda : print('triggered button')
     print_text = lambda text, end='' : print(f'{text}{end}')
     change_background = lambda : py5.background(py5.random(255), py5.random(255), py5.random(255))
+    print_input = lambda text : print(text)
     
     def setup():
         py5.size(500, 500, py5.P2D)
@@ -90,21 +184,14 @@ if __name__=='__main__':
                     Button(py5=py5, label='print to console', pos=(150, 30), 
                            execute_func=print_text,
                            func_args=('first line',), func_kwargs={'end':'\nsecond line :)'})]
+        py5.get_current_sketch().text_input = Text_Input(py5=py5, pos=(20, 90), execute_func=print_input)
         
     def draw():
         [button.run() for button in py5.get_current_sketch().buttons]
+        py5.get_current_sketch().text_input.run()
         #print_coordinates(py5)
     
     py5.run_sketch()
-
-class Selector(GUI_Element):
-    pass
-
-class Toggle(GUI_Element):
-    pass
-
-class Slider(GUI_Element):
-    pass
 
 class PrintZero:
     """Print zero: An extended print function.
