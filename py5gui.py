@@ -2,13 +2,15 @@ import os
 from utils.plot import Plot, legend
 import time
 
+font_loaded, font = False, None
+
 def remap(value, inFrom, inTo, outFrom, outTo):
     if inFrom == inTo:
         # special case where in-values are the same => remap() would zero divide => broadcast center as result
         return (value*0) + ((outFrom + outTo)/2)
     return outFrom + (outTo - outFrom) * ((value - inFrom) / (inTo - inFrom))
 
-class GUI_Element:
+class Element:
     def __init__(self, py5=None, pos=(0,0), label='', w=30, h=30):
         self.x = pos[0]; self.y = pos[1]
         self.label = label
@@ -21,6 +23,15 @@ class GUI_Element:
         self.highlight_fill = (32,)
         self.text_fill = (255,);    self.text_stroke = (127,)
         self.stroke_weight = 3
+
+        global font_loaded, font
+        if not font_loaded:
+            # only create and load the font the first time it is needed
+            font_path = os.path.abspath(os.path.join(__file__, '..', 'fonts', 'roboto',  'Roboto-Regular.ttf'))
+            font = py5.create_font(font_path, 12)
+            font_loaded = True
+        self.font = font
+        font_loaded = True
         
     def mouse_in(self):
         return True if self.p.mouse_x > self.x and self.p.mouse_x < self.x+self.w and \
@@ -30,6 +41,7 @@ class GUI_Element:
         self.p.stroke(*self.pressed_stroke) if pressed else self.p.stroke(*self.stroke)
         self.p.fill(*self.highlight_fill) if highlight else self.p.fill(0)
         self.p.stroke_weight(self.stroke_weight)
+        self.p.text_font(self.font)
         self.p.rect_mode(self.p.CENTER)
         if align_left:
             self.p.text_align(self.p.LEFT, self.p.CENTER)
@@ -39,14 +51,14 @@ class GUI_Element:
     def set_text_style(self):
         self.p.fill(*self.text_fill);   self.p.stroke(*self.text_stroke)
 
-class Button(GUI_Element):
-    def __init__(self, execute_func=None, func_args=None, func_kwargs=None, **kwargs):
-        """You can provide a function to be triggered by this button with execute_func."""
+class Button(Element):
+    def __init__(self, on_click=None, func_args=None, func_kwargs=None, **kwargs):
+        """You can provide a function to be triggered by this button with on_click."""
         w = kwargs['py5'].text_width(kwargs['label']) + 30
         self.func_args, self.func_kwargs = func_args, func_kwargs
         super().__init__(**kwargs, w=w)
 
-        self.execute_func = execute_func
+        self.on_click = on_click
         self.prev_mouse_pressed = False
     
     def run(self):
@@ -56,7 +68,7 @@ class Button(GUI_Element):
         if mouse_in and self.p.is_mouse_pressed:
             pressed = True
             if not self.prev_mouse_pressed:
-                self.execute_func( *(self.func_args if self.func_args else ()),
+                self.on_click( *(self.func_args if self.func_args else ()),
                                   **(self.func_kwargs if self.func_kwargs else {}))
         
         with self.p.push_style():
@@ -69,7 +81,7 @@ class Button(GUI_Element):
         self.prev_mouse_pressed = self.p.is_mouse_pressed
 
 class Slider(object):
-    # TODO: turn this basic class into a GUI_ELEMENT
+    # TODO: turn this basic class into a Element
     def __init__(self, leftCoord, topCoord, min, max, value=None):
         if value == None:
             self.value = (max + min) / 2
@@ -101,7 +113,7 @@ class Slider(object):
         py5.pop_style()
         #print(f'current value: {self.value}')
 
-class Text_Input(GUI_Element):
+class Text_Input(Element):
     def __init__(self, w=150, execute_func=None, func_args=None, func_kwargs=None, **kwargs):
         """A minimal text input field. Click to select and write a text input.
         Please note that the writing speed is limited by the set framerate, 
@@ -154,44 +166,37 @@ class Text_Input(GUI_Element):
     def get_input(self):
         return self.input
 
-class Selector(GUI_Element):
+class Col:
+    def __init__(self, py5=None, pos=(0,0), w=None, h=None):
+        self.p = py5
+        self.pos = pos
+        self.w = py5.width if not w else 400
+        self.h = py5.height if not h else 400
+        self.elements = []
+
+    def run(self):
+        for element in self.elements:
+            element.run()
+
+    def add(self, element:Element):
+        self.elements.append(element)
+
+    def organize(self):
+        pass    # TODO space elements upon __exit__()
+
+
+class Selector(Element):
     pass
 
-class Toggle(GUI_Element):
+class Toggle(Element):
     pass
 
 def print_coordinates(py5=None):
     """"print the currently moused over coordinates"""
     print(f'x: {py5.mouse_x} y: {py5.mouse_y}')
 
-if __name__=='__main__':
-    import py5
-    
-    confirm_click = lambda : print('triggered button')
-    print_text = lambda text, end='' : print(f'{text}{end}')
-    change_background = lambda : py5.background(py5.random(255), py5.random(255), py5.random(255))
-    print_input = lambda text : print(text)
-    
-    def setup():
-        py5.size(500, 500, py5.P2D)
-        py5.background(0)
-        #instead of using globals, the buttons can be stored within the sketch instance
-        py5.get_current_sketch().buttons = [
-                    Button(py5=py5, label='simple button', pos=(20, 50),
-                           execute_func=confirm_click),
-                    Button(py5=py5, label='change background', pos=(50, 0), 
-                           execute_func=change_background),
-                    Button(py5=py5, label='print to console', pos=(150, 30), 
-                           execute_func=print_text,
-                           func_args=('first line',), func_kwargs={'end':'\nsecond line :)'})]
-        py5.get_current_sketch().text_input = Text_Input(py5=py5, pos=(20, 90), execute_func=print_input)
-        
-    def draw():
-        [button.run() for button in py5.get_current_sketch().buttons]
-        py5.get_current_sketch().text_input.run()
-        #print_coordinates(py5)
-    
-    py5.run_sketch()
+if __name__ == '__main__':
+    pass
 
 class PrintZero:
     """Print zero: An extended print function.

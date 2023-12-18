@@ -5,4 +5,6 @@ if __name__ == "__main__":
     setuptools.setup(name='py5gui',
                      version='0.1',
                      py_modules=['py5gui', 'utils.plot'],
-                     packages=setuptools.find_packages())
+                     packages=setuptools.find_packages(),
+                     install_requires=['pynput',]
+                     )
