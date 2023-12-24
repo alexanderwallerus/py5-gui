@@ -4,8 +4,8 @@ import setuptools
 if __name__ == "__main__":
     setuptools.setup(name='py5gui',
                      version='0.1',
-                     packages=setuptools.find_packages(),
-                     # packages=['py5gui', 'py5gui.utils'],
+                     # packages=setuptools.find_packages(),
+                     packages=['py5gui', 'py5gui.utils'],
                      
                      # include data files
                      package_dir={'py5gui': 'py5gui'},
