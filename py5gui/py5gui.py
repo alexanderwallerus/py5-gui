@@ -1,5 +1,5 @@
 import os
-from utils.plot import Plot, legend
+from .utils.plot import Plot, legend    # the relative . is important for a pip install to find modules (from py5gui.utils.plot import... would also work)
 import time
 
 font_loaded, font = False, None
@@ -80,38 +80,38 @@ class Button(Element):
         
         self.prev_mouse_pressed = self.p.is_mouse_pressed
 
-class Slider(object):
-    # TODO: turn this basic class into a Element
-    def __init__(self, leftCoord, topCoord, min, max, value=None):
-        if value == None:
-            self.value = (max + min) / 2
-        else:
-            self.value = value
-        self.leftCoord=leftCoord; self.topCoord=topCoord; self.min=min; self.max=max
-        self.w = 80; self.h=8
-        self.isDragged = False
+# class Slider(object):
+#     # TODO: turn this basic class into a Element
+#     def __init__(self, leftCoord, topCoord, min, max, value=None):
+#         if value == None:
+#             self.value = (max + min) / 2
+#         else:
+#             self.value = value
+#         self.leftCoord=leftCoord; self.topCoord=topCoord; self.min=min; self.max=max
+#         self.w = 80; self.h=8
+#         self.isDragged = False
         
-    def run(self):
-        py5.push_style()
-        py5.fill(127);  py5.no_stroke()
-        py5.rect(self.leftCoord, self.topCoord, self.w, self.h, 4)   #radius=4
-        py5.ellipse_mode(py5.CENTER)
-        py5.stroke(255);    py5.fill(64)
-        elliPos = py5.remap(self.value, self.min, self.max, 
-                            self.leftCoord, self.leftCoord+self.w)
-        py5.ellipse(elliPos, self.topCoord + self.h/2, 22, 22)
-        if(not self.isDragged and py5.is_mouse_pressed):
-            if(py5.mouse_x >= self.leftCoord and py5.mouse_x <= self.leftCoord + self.w and
-               py5.mouse_y >= self.topCoord-10 and py5.mouse_y <= self.topCoord + 24):
-                self.isDragged = True
-        if(self.isDragged and not py5.is_mouse_pressed):
-            self.isDragged = False
-        if(self.isDragged):
-            newVal = py5.remap(py5.mouse_x, self.leftCoord, self.leftCoord + self.w,
-                               self.min, self.max)
-            self.value = py5.constrain(newVal, self.min, self.max)
-        py5.pop_style()
-        #print(f'current value: {self.value}')
+#     def run(self):
+#         py5.push_style()
+#         py5.fill(127);  py5.no_stroke()
+#         py5.rect(self.leftCoord, self.topCoord, self.w, self.h, 4)   #radius=4
+#         py5.ellipse_mode(py5.CENTER)
+#         py5.stroke(255);    py5.fill(64)
+#         elliPos = py5.remap(self.value, self.min, self.max, 
+#                             self.leftCoord, self.leftCoord+self.w)
+#         py5.ellipse(elliPos, self.topCoord + self.h/2, 22, 22)
+#         if(not self.isDragged and py5.is_mouse_pressed):
+#             if(py5.mouse_x >= self.leftCoord and py5.mouse_x <= self.leftCoord + self.w and
+#                py5.mouse_y >= self.topCoord-10 and py5.mouse_y <= self.topCoord + 24):
+#                 self.isDragged = True
+#         if(self.isDragged and not py5.is_mouse_pressed):
+#             self.isDragged = False
+#         if(self.isDragged):
+#             newVal = py5.remap(py5.mouse_x, self.leftCoord, self.leftCoord + self.w,
+#                                self.min, self.max)
+#             self.value = py5.constrain(newVal, self.min, self.max)
+#         py5.pop_style()
+#         #print(f'current value: {self.value}')
 
 class Text_Input(Element):
     def __init__(self, w=150, execute_func=None, func_args=None, func_kwargs=None, **kwargs):

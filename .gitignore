@@ -1,3 +1,4 @@
-__pycache__/*
+py5gui/__pycache__/*
 
-utils/__pycache__/*
+py5gui/utils/__pycache__/*
+py5gui/examples/__pycache__/*

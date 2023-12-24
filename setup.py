@@ -4,9 +4,13 @@ import setuptools
 if __name__ == "__main__":
     setuptools.setup(name='py5gui',
                      version='0.1',
-                     py_modules=['py5gui', 'utils.plot'],
                      packages=setuptools.find_packages(),
-                     package_data={'fonts/roboto': ['*.ttf', '*.txt']}, # all .tff and .txt files
-                     include_package_data=True,
-                     install_requires=['pynput',]
+                     # packages=['py5gui', 'py5gui.utils'],
+                     
+                     # include data files
+                     package_dir={'py5gui': 'py5gui'},
+                     package_data={'py5gui': ['fonts/roboto/*.txt', 'fonts/roboto/*.ttf']},
+                     # include_package_data=True, #include data files defined in MANIFEST.in
+                     
+                     install_requires=['pynput']
                      )
