@@ -1,8 +1,7 @@
 import py5
 import sys, os
-# insert into path before the installed package to directly see code updates
-sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..')) # insert and use the local py5gui package in the python path before an environment install
 import py5gui as ui
 
 confirm_click = lambda : print('triggered button')

@@ -1,5 +1,5 @@
 import os
-from .utils.plot import Plot, legend    # the relative . is important for a pip install to find modules (from py5gui.utils.plot import... would also work)
+from .utils.plot import Plot, legend    # the relative . is important for a pip install to find modules relative to the parent package (from py5gui.utils.plot import... would also work)
 import time
 
 font_loaded, font = False, None

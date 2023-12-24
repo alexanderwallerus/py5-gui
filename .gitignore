@@ -1,7 +1,7 @@
 py5gui/__pycache__/*
 
 py5gui/utils/__pycache__/*
-py5gui/examples/__pycache__/*
+examples/__pycache__/*
 
 build/*
 py5gui.egg-info/*
