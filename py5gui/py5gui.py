@@ -12,12 +12,11 @@ def remap(value, inFrom, inTo, outFrom, outTo):
 
 class Element:
     def __init__(self, py5=None, pos=(0,0), label='', w=30, h=30):
-        self.x = pos[0]; self.y = pos[1]
         self.label = label
         self.p = py5
         
         self.h = h;     self.w = w
-        self.center = (self.x + self.w/2, self.y + self.h/2)
+        self.update_xy(x=pos[0], y=pos[1])
         
         self.fill = (0,);   self.stroke = (127,);   self.pressed_stroke=(255,)
         self.highlight_fill = (32,)
@@ -32,6 +31,12 @@ class Element:
             font_loaded = True
         self.font = font
         font_loaded = True
+    
+    def update_xy(self, x=None, y=None):
+        """update the center when changing the xy"""
+        self.x = x
+        self.y = y
+        self.center = (self.x + self.w/2, self.y + self.h/2)
         
     def mouse_in(self):
         return True if self.p.mouse_x > self.x and self.p.mouse_x < self.x+self.w and \
@@ -166,30 +171,82 @@ class Text_Input(Element):
     def get_input(self):
         return self.input
 
-class Col:
-    def __init__(self, py5=None, pos=(0,0), w=None, h=None):
-        self.p = py5
-        self.pos = pos
-        self.w = py5.width if not w else 400
-        self.h = py5.height if not h else 400
-        self.elements = []
-
-    def run(self):
-        for element in self.elements:
-            element.run()
-
-    def add(self, element:Element):
-        self.elements.append(element)
-
-    def organize(self):
-        pass    # TODO space elements upon __exit__()
-
-
 class Selector(Element):
     pass
 
 class Toggle(Element):
     pass
+
+class Organizer:
+    def __init__(self, py5=None, pos=(0,0), h=None):
+        self.p = py5
+        self.update_xy(pos[0], pos[1])
+        self.x, self.y = pos[0], pos[1]
+        self.elements = []
+        self.spacer_height = 10
+        self.spacer_width = 10
+
+    def update_xy(self, x=None, y=None):
+        self.x = x
+        self.y = y
+
+    def run(self):
+        for element in self.elements:
+            element.run()
+        with self.p.push_style():
+            self.p.stroke(127,);      self.p.no_fill();     self.p.stroke_weight(1)
+            self.p.rect(self.x, self.y, self.w, self.h)
+
+    def add(self, element:Element):
+        self.elements.append(element)
+
+    def __enter__(self):
+        return self # makes the "with Col() as col" work
+
+    def __exit__(self, *args):
+        self.organize()
+    
+    def organize(self):
+        """subclass dependent organization of element positions"""
+        for e in self.elements:
+            if isinstance(e, Organizer):
+                e.organize()
+
+class Col(Organizer):
+    def __init__(self, py5=None, pos=(0,0), h=None):
+        super().__init__(py5=py5, pos=pos)
+        self.h = py5.height if not h else h
+
+    def organize(self):
+        current_height = self.y + self.spacer_height/2
+        max_w = 0
+        for e in self.elements:
+            if current_height + e.h + self.spacer_height/2 > self.y + self.h:
+                # no space left in this col
+                break
+            e.update_xy(self.x + self.spacer_width/2, current_height)
+            current_height += e.h + self.spacer_height
+            max_w = max(max_w, e.w)
+        self.w = max_w + self.spacer_width
+        super().organize()
+
+class Row(Organizer):
+    def __init__(self, py5=None, pos=(0,0), w=None):
+        super().__init__(py5=py5, pos=pos)
+        self.w = py5.width if not w else w
+
+    def organize(self):
+        current_width = self.x + self.spacer_width/2
+        max_h = 0
+        for e in self.elements:
+            if current_width + e.w + self.spacer_width/2 > self.x + self.w:
+                # no space left in this row
+                break
+            e.update_xy(current_width, self.y + self.spacer_height/2)
+            current_width += e.w + self.spacer_width
+            max_h = max(max_h, e.h)
+        self.h = max_h + self.spacer_height
+        super().organize()
 
 def print_coordinates(py5=None):
     """"print the currently moused over coordinates"""
