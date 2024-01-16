@@ -178,7 +178,7 @@ class Toggle(Element):
     pass
 
 class Organizer:
-    def __init__(self, py5=None, pos=(0,0), h=None):
+    def __init__(self, py5=None, pos=(0,0)):
         self.p = py5
         self.update_xy(pos[0], pos[1])
         self.x, self.y = pos[0], pos[1]
@@ -212,6 +212,13 @@ class Organizer:
             if isinstance(e, Organizer):
                 e.organize()
 
+    def __del__(self):
+        print('running del')
+        for i in reversed(range(len(self.elements))):
+            print(f'deleting {i}')
+            del self.elements[i]
+        # super().__del__()
+
 class Col(Organizer):
     def __init__(self, py5=None, pos=(0,0), h=None):
         super().__init__(py5=py5, pos=pos)
@@ -220,13 +227,19 @@ class Col(Organizer):
     def organize(self):
         current_height = self.y + self.spacer_height/2
         max_w = 0
-        for e in self.elements:
+        too_large = []
+        for i in range(len(self.elements)):
+            e = self.elements[i]
             if current_height + e.h + self.spacer_height/2 > self.y + self.h:
                 # no space left in this col
-                break
+                print('exceeding col height - removing overflowing elements')
+                del self.elements[i]
+                i -= 1
             e.update_xy(self.x + self.spacer_width/2, current_height)
             current_height += e.h + self.spacer_height
             max_w = max(max_w, e.w)
+        for i in reversed(range(len(too_large))):
+            del self.elements[i]
         self.w = max_w + self.spacer_width
         super().organize()
 
@@ -238,9 +251,14 @@ class Row(Organizer):
     def organize(self):
         current_width = self.x + self.spacer_width/2
         max_h = 0
-        for e in self.elements:
+        too_large = []
+        for i in range(len(self.elements)):
+            e = self.elements[i]
             if current_width + e.w + self.spacer_width/2 > self.x + self.w:
                 # no space left in this row
+                print('exceeding row width - removing overflowing elements')
+                del self.elements[i]
+                i -= 1
                 break
             e.update_xy(current_width, self.y + self.spacer_height/2)
             current_width += e.w + self.spacer_width

@@ -43,7 +43,6 @@ def setup():
                 inner_row.add(ui.Button(py5=py5, label='f', on_click=lambda:print('f')))
                 inner_row.add(ui.Button(py5=py5, label='g', on_click=lambda:print('g')))
                 second_col.add(inner_row)
-            nested_row.add(second_col)
     
     py5.get_current_sketch().nested_row = nested_row
 
