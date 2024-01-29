@@ -178,13 +178,16 @@ class Toggle(Element):
     pass
 
 class Organizer:
-    def __init__(self, py5=None, pos=(0,0)):
+    def __init__(self, py5=None, pos:tuple[int,int]=(0,0), max_w=None, max_h=None):
+        # TODO: add invisible borders argument, consider skip first spacer argument
         self.p = py5
-        self.update_xy(pos[0], pos[1])
-        self.x, self.y = pos[0], pos[1]
-        self.elements = []
         self.spacer_height = 10
         self.spacer_width = 10
+        self.elements = []
+        self.x, self.y = pos[0], pos[1]
+        self.w, self.h = None, None
+        self.max_w, self.max_h = max_w, max_h
+        self.update_xy(pos[0], pos[1])
 
     def update_xy(self, x=None, y=None):
         self.x = x
@@ -204,67 +207,103 @@ class Organizer:
         return self # makes the "with Col() as col" work
 
     def __exit__(self, *args):
-        self.organize()
-    
-    def organize(self):
-        """subclass dependent organization of element positions"""
-        for e in self.elements:
-            if isinstance(e, Organizer):
-                e.organize()
+        pass
 
-    def __del__(self):
-        print('running del')
-        for i in reversed(range(len(self.elements))):
-            print(f'deleting {i}')
-            del self.elements[i]
-        # super().__del__()
+    # def __del__(self):
+    #     print('running del')
+    #     for i in reversed(range(len(self.elements))):
+    #         print(f'deleting {i}')
+    #         del self.elements[i]
+    #     # super().__del__()
 
 class Col(Organizer):
-    def __init__(self, py5=None, pos=(0,0), h=None):
-        super().__init__(py5=py5, pos=pos)
-        self.h = py5.height if not h else h
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.offset_h = self.y + self.spacer_height/2
+    
+    def add(self, element:Element|Organizer):
+        if isinstance(element, Organizer) and element.h == None:
+            print(f'organizer {element} is still incomplete lacking height and won\'t be added')
+            return
+        if self.max_h == None or self.offset_h + element.h + self.spacer_height/2 < self.y + self.max_h:
+            if self.max_w != None and element.w + self.spacer_width > self.max_w:
+                print(f'the column width is limited: {self.max_w}, {element} is too wide and won\'t be added')
+                return
+            self.elements.append(element)
+            element.update_xy(self.x + self.spacer_width/2, self.offset_h)
+            self.offset_h += element.h + self.spacer_height
+        else:
+            print(f'{element} doesn\'t fit in the column and won\'t be added')
 
-    def organize(self):
-        current_height = self.y + self.spacer_height/2
-        max_w = 0
-        too_large = []
-        for i in range(len(self.elements)):
-            e = self.elements[i]
-            if current_height + e.h + self.spacer_height/2 > self.y + self.h:
-                # no space left in this col
-                print('exceeding col height - removing overflowing elements')
-                del self.elements[i]
-                i -= 1
-            e.update_xy(self.x + self.spacer_width/2, current_height)
-            current_height += e.h + self.spacer_height
-            max_w = max(max_w, e.w)
-        for i in reversed(range(len(too_large))):
-            del self.elements[i]
-        self.w = max_w + self.spacer_width
-        super().organize()
+    def __exit__(self, *args):
+        self.organize_elements()
+
+    def organize_elements(self):
+        if self.max_w != None:
+            self.w = self.max_w
+        else:
+            # no width provided, fit it to contained elements
+            max_w = 0
+            for e in self.elements:
+                max_w = max(max_w, e.w)
+            self.w = max_w + self.spacer_width
+        if self.max_h != None:
+            self.h = self.max_h
+        else:
+            self.h = self.offset_h - self.y - self.spacer_width/2
+
+    def update_xy(self, x=None, y=None):
+        super().update_xy(x, y)
+        # update elements after movement
+        offset_h = self.y + self.spacer_height/2
+        for element in self.elements:
+            element.update_xy(self.x + self.spacer_width/2, offset_h)
+            offset_h += element.h + self.spacer_height
 
 class Row(Organizer):
-    def __init__(self, py5=None, pos=(0,0), w=None):
-        super().__init__(py5=py5, pos=pos)
-        self.w = py5.width if not w else w
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.offset_w = self.x + self.spacer_width/2
+    
+    def add(self, element:Element|Organizer):
+        if isinstance(element, Organizer) and element.w == None:
+            print(f'organizer {element} is still incomplete lacking width and won\'t be added')
+            return
+        if self.max_w == None or self.offset_w + element.w + self.spacer_width/2 < self.x + self.max_w:
+            if self.max_h != None and element.h + self.spacer_height > self.max_h:
+                print(f'the row height is limited: {self.max_h}, {element} is too high and won\'t be added')
+                return
+            self.elements.append(element)
+            element.update_xy(self.offset_w, self.y + self.spacer_height/2)
+            self.offset_w += element.w + self.spacer_width
+        else:
+            print(f'{element} doesn\'t fit in the row and won\'t be added')
+      
+    def __exit__(self, *args):
+        self.organize_elements()
+    
+    def organize_elements(self):
+        if self.max_h != None:
+            self.h = self.max_h
+        else:
+            # no height provided, fit it to contained elements
+            max_h = 0
+            for e in self.elements:
+                max_h = max(max_h, e.h)
+            self.h = max_h + self.spacer_height
+        if self.max_w != None:
+            self.w = self.max_w
+        else:
+            self.w = self.offset_w - self.x - self.spacer_height/2
 
-    def organize(self):
-        current_width = self.x + self.spacer_width/2
-        max_h = 0
-        too_large = []
-        for i in range(len(self.elements)):
-            e = self.elements[i]
-            if current_width + e.w + self.spacer_width/2 > self.x + self.w:
-                # no space left in this row
-                print('exceeding row width - removing overflowing elements')
-                del self.elements[i]
-                i -= 1
-                break
-            e.update_xy(current_width, self.y + self.spacer_height/2)
-            current_width += e.w + self.spacer_width
-            max_h = max(max_h, e.h)
-        self.h = max_h + self.spacer_height
-        super().organize()
+    def update_xy(self, x=None, y=None):
+        super().update_xy(x, y)
+        # update elements after movement
+        offset_w = self.x + self.spacer_width/2
+        for element in self.elements:
+            element.update_xy(offset_w, self.y + self.spacer_height/2)
+            offset_w += element.w + self.spacer_width
+
 
 def print_coordinates(py5=None):
     """"print the currently moused over coordinates"""
