@@ -21,7 +21,8 @@ def setup():
         ui.Button(py5=py5, label='print to console', pos=(150, 30), 
                   on_click=print_text,
                   func_args=('first line',), func_kwargs={'end':'\nsecond line :)'})]
-    py5.get_current_sketch().text_input = ui.Text_Input(py5=py5, pos=(20, 90), execute_func=print_input)
+    py5.get_current_sketch().text_input0 = ui.Text_Input(py5=py5, pos=(20, 90), execute_func=print_input)
+    py5.get_current_sketch().text_input1 = ui.Text_Input(py5=py5, pos=(320, 90), execute_func=print_input)
 
     with ui.Col(py5=py5, pos=(30, 140), max_h=200, max_w=None) as simple_column:
         simple_column.add(ui.Button(py5=py5, label='a', on_click=lambda:print('a')))
@@ -57,11 +58,15 @@ def setup():
     
 def draw():
     [button.run() for button in py5.get_current_sketch().buttons]
-    py5.get_current_sketch().text_input.run()
+    py5.get_current_sketch().text_input0.run()
+    py5.get_current_sketch().text_input1.run()
     py5.get_current_sketch().simple_column.run()
     py5.get_current_sketch().simple_row.run()
     py5.get_current_sketch().nested_row.run()
     #print_coordinates(py5)
+
+def key_pressed(e):
+    ui.connect_keyboard(e)
 
 def exit():
     print('closing')

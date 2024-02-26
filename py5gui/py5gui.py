@@ -4,6 +4,9 @@ import time
 
 font_loaded, font = False, None
 
+# global list of text_input elements to be used for the key event
+text_inputs = []
+
 def remap(value, inFrom, inTo, outFrom, outTo):
     if inFrom == inTo:
         # special case where in-values are the same => remap() would zero divide => broadcast center as result
@@ -119,7 +122,7 @@ class Button(Element):
 #         #print(f'current value: {self.value}')
 
 class Text_Input(Element):
-    def __init__(self, w=150, execute_func=None, func_args=None, func_kwargs=None, **kwargs):
+    def __init__(self, w=150, execute_func=None, use_callback=True, func_args=None, func_kwargs=None, **kwargs):
         """A minimal text input field. Click to select and write a text input.
         Please note that the writing speed is limited by the set framerate, 
         which typically will be below accustomed keyboard writing speed.
@@ -128,8 +131,14 @@ class Text_Input(Element):
         super().__init__(**kwargs, w=w)
         self.active = False
         self.input = ''
-        self.prev_key_pressed = False, False
         self.execute_func, self.func_args, self.func_kwargs = execute_func, func_args, func_kwargs
+        
+        # use_callback = True allows running a text input within draw() without need for a key_pressed() function
+        self.use_callback = use_callback
+        self.prev_key_pressed = False
+        
+        global text_inputs
+        text_inputs.append(self)
 
     def run(self):
         mouse_in = self.mouse_in()
@@ -140,18 +149,10 @@ class Text_Input(Element):
                 self.active = True
             else:
                 self.active = False
-        
-        if self.active:
-            if not self.prev_key_pressed and self.p.is_key_pressed:
-                if self.p.key == '\n':
-                    if self.execute_func != None:
-                        self.execute_func(self.input, *(self.func_args if self.func_args else ()),
-                                                     **(self.func_kwargs if self.func_kwargs else {}))
-                elif self.p.key_code == 8:
-                    self.input = self.input[:-1]
-                else:
-                    self.input += self.p.key
-        
+
+        if not self.use_callback:
+            self.read_sketch()
+
         with self.p.push_style():
             self.set_style(highlight=mouse_in, pressed=pressed, align_left=True)
             self.p.rect(self.center[0], self.center[1], 
@@ -165,11 +166,55 @@ class Text_Input(Element):
                 blink = '|' if time.time() % 2 > 1.0 and self.active else ''
                 self.p.rect_mode(self.p.CORNER)
                 self.p.text(self.input + blink, self.x+7, self.y, self.w-15, self.h)
+
+    def read(self, key):
+        if self.active:
+            if key.get_key() == '\n':
+                if self.execute_func != None:
+                    self.execute_func(self.input, *(self.func_args if self.func_args else ()),
+                                                 **(self.func_kwargs if self.func_kwargs else {}))
+            elif key.get_key_code() == 8:
+                self.input = self.input[:-1]
+            else:
+                self.input += key.get_key()
+
+    def read_sketch(self):
+        """Alternative to approach to the callback to be run within the frame loop. This doesn't require a callback
+        from the sketche's def key_pressed() through connect_keyboard(key_event) but can only read one key press
+        per frame.
+        """
+        if self.active:
+            if not self.prev_key_pressed and self.p.is_key_pressed:
+                if self.p.key == '\n':
+                    if self.execute_func != None:
+                        self.execute_func(self.input, *(self.func_args if self.func_args else ()),
+                                                    **(self.func_kwargs if self.func_kwargs else {}))
+                elif self.p.key_code == 8:
+                    self.input = self.input[:-1]
+                else:
+                    self.input += self.p.key
         
         self.prev_key_pressed = self.p.is_key_pressed
 
     def get_input(self):
         return self.input
+
+def connect_keyboard(key_event):
+    """A key_event forwarding function to be used within your sketch's def key_pressed().
+    This allows text_inputs to read the keyboard.
+    Example:
+
+    def key_pressed(e):
+        ui.connect_keyboard_ui(e)
+    """
+
+    # An alternatives to this approach could be checking p.key within the input's .run() which makes it loose keys
+    # that are typed faster than its framerate, or using from pynput.keyboard import Key, Listener which seems
+    # to come with a small performance impact (~300 hz in a 2700hz to 2400hz example) The pynput approach
+    # should still be implemented as an alternative for less performance critical applications
+    global text_inputs
+    for text_input in text_inputs:
+        text_input.read(key_event)
 
 class Selector(Element):
     pass
