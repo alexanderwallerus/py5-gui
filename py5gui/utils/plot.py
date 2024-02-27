@@ -477,50 +477,50 @@ class Plot:
 
 def legend(col_lookup:dict, x, y, horizontal=True, to_graphics=False, frame=True, sketch:py5.Sketch=None):
     if sketch == None:
-        p = py5.get_current_sketch()
+        s = py5.get_current_sketch()
     else:
-        p = sketch
+        s = sketch
     
-    with p.push_style():
-        p.stroke_weight(1);  p.text_size(14)
-        text_height = p.text_ascent() + p.text_descent()
+    with s.push_style():
+        s.stroke_weight(1);  s.text_size(14)
+        text_height = s.text_ascent() + s.text_descent()
         labels = list(col_lookup.keys())
         colors = list(col_lookup.values())
-        label_lengths = [p.text_width(label) for label in labels]
+        label_lengths = [s.text_width(label) for label in labels]
         color_width = 20
         offset = 10
         if horizontal:
             total_length = sum(label_lengths) + len(labels)*color_width + len(labels)*offset*2
             total_height = text_height
         else:
-            total_length = p.text_width(max(labels, key=len)) + color_width + offset*2
+            total_length = s.text_width(max(labels, key=len)) + color_width + offset*2
             total_height = len(labels) * (text_height)
     if to_graphics:
         x, y = 0, 0
-        p = py5.create_graphics(int(total_length), int(total_height))
-        p.begin_draw()
-    p.push_style()
-    p.stroke_weight(1);  p.text_size(14)
-    p.text_align(p.LEFT, p.TOP)
-    p.fill(0);  p.stroke(255)
+        s = sketch.create_graphics(int(total_length), int(total_height))
+        s.begin_draw()
+    s.push_style()
+    s.stroke_weight(1);  s.text_size(14)
+    s.text_align(s.LEFT, s.TOP)
+    s.fill(0);  s.stroke(255)
     if frame:
-        p.rect(x, y, total_length-1, total_height-1)
-    p.fill(255)
-    with p.push_matrix():
-        p.translate(x, y)
+        s.rect(x, y, total_length-1, total_height-1)
+    s.fill(255)
+    with s.push_matrix():
+        s.translate(x, y)
         for i in range(len(labels)):
-            with p.push_style():
-                p.no_stroke(); p.fill(*colors[i])
-                p.translate(offset/2, 0)
-                p.rect(0, 5, color_width, text_height-10)
-            p.translate(color_width + offset, 0)
-            p.text(labels[i], 0, 0)
-            p.translate(offset/2, 0)
+            with s.push_style():
+                s.no_stroke(); s.fill(*colors[i])
+                s.translate(offset/2, 0)
+                s.rect(0, 5, color_width, text_height-10)
+            s.translate(color_width + offset, 0)
+            s.text(labels[i], 0, 0)
+            s.translate(offset/2, 0)
             if horizontal:
-                p.translate(label_lengths[i], 0)
+                s.translate(label_lengths[i], 0)
             else:
-                p.translate(-color_width - 2*offset, text_height)
-    p.pop_style()
+                s.translate(-color_width - 2*offset, text_height)
+    s.pop_style()
     if to_graphics:
-        p.end_draw()
-        return p
+        s.end_draw()
+        return s
