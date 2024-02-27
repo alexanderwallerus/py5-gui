@@ -60,7 +60,7 @@ class Element:
         if not font_loaded:
             # only create and load the font the first time it is needed
             font_path = os.path.abspath(os.path.join(__file__, '..', 'fonts', 'roboto',  'Roboto-Regular.ttf'))
-            font = py5.create_font(font_path, 12)
+            font = self.s.create_font(font_path, 12)
             font_loaded = True
         self.font = font
         font_loaded = True
