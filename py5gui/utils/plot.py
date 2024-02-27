@@ -1,4 +1,5 @@
 import numpy as np
+import py5
 
 def remap(value, inFrom, inTo, outFrom, outTo):
     if inFrom == inTo:
@@ -15,14 +16,18 @@ class Plot:
        upon the following call to .show(). by default .plot(), .scatter(). and .axvline will use the left y_axis=0, but you
        can use y_axis=1 to have their data be plotted on a secondary y axis, to keep track of different ranges of numerical 
        results, or even mix numerical and categorical data in the same plot."""
-    def __init__(self, py5, x, y, w, h):
+    def __init__(self, x, y, w, h, sketch:py5.Sketch=None):
         self.plots = []     #contains dicts of {'xs', 'ys', 'cols', 'type'}
 
-        self.p = py5
+        if sketch == None:
+            self.s = py5.get_current_sketch()
+        else:
+            self.s = sketch
+        
         self.x = x; self.y = y
         self.w = w; self.h = h
 
-        self.graphics = self.p.create_graphics(w, h)
+        self.graphics = self.s.create_graphics(w, h)
 
     def calc_dimensions(self, up_extra=0, left_extra=0, bottom_extra=0, right_extra=0, to_graphics=False):
         if to_graphics:
@@ -176,7 +181,7 @@ class Plot:
         ylimit=(lower, upper) to only plot numerical data above and/or below a certain point. 
         ylimit=(-7, None) for example would only plot data points with a y of -7 or higher"""
         if not to_py5image:
-            p = self.p
+            p = self.s
         else:
             p = self.graphics
             p.begin_draw()
@@ -470,8 +475,12 @@ class Plot:
     def reset(self):
         self.plots = []
 
-def legend(py5, col_lookup:dict, x, y, horizontal=True, to_graphics=False, frame=True):
-    p = py5
+def legend(col_lookup:dict, x, y, horizontal=True, to_graphics=False, frame=True, sketch:py5.Sketch=None):
+    if sketch == None:
+        p = py5.get_current_sketch()
+    else:
+        p = sketch
+    
     with p.push_style():
         p.stroke_weight(1);  p.text_size(14)
         text_height = p.text_ascent() + p.text_descent()
@@ -505,7 +514,7 @@ def legend(py5, col_lookup:dict, x, y, horizontal=True, to_graphics=False, frame
                 p.translate(offset/2, 0)
                 p.rect(0, 5, color_width, text_height-10)
             p.translate(color_width + offset, 0)
-            p.text(labels[i], 0, -1)
+            p.text(labels[i], 0, 0)
             p.translate(offset/2, 0)
             if horizontal:
                 p.translate(label_lengths[i], 0)

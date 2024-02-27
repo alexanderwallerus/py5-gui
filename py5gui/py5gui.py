@@ -1,11 +1,20 @@
 import os
 from .utils.plot import Plot, legend    # the relative . is important for a pip install to find modules relative to the parent package (from py5gui.utils.plot import... would also work)
 import time
+import py5
 
 font_loaded, font = False, None
 
 # global list of text_input elements to be used for the key event
 text_inputs = []
+# global list of all existing elements. If they all belong to the same sketch you can run them all with
+# the global .run() function
+elements = []
+organizers = []
+
+# the py5 sketch instance to be used by default. It can either be set through use_sketch(sketch) when using 
+# py5 class mode or be infered when using py5 module mode
+s = None
 
 def remap(value, inFrom, inTo, outFrom, outTo):
     if inFrom == inTo:
@@ -13,11 +22,32 @@ def remap(value, inFrom, inTo, outFrom, outTo):
         return (value*0) + ((outFrom + outTo)/2)
     return outFrom + (outTo - outFrom) * ((value - inFrom) / (inTo - inFrom))
 
+def use_sketch(sketch:py5.Sketch):
+    """"Set the default sketch to be used for elements unless they are initialized with a specific sketch
+    This is only required when using py5 in class mode, not in module mode"""
+    global s
+    s = sketch
+
+def run():
+    global elements
+    for e in elements:
+        e.run()
+    for o in organizers:
+        o.draw()
+
 class Element:
-    def __init__(self, py5=None, pos=(0,0), label='', w=30, h=30):
-        self.label = label
-        self.p = py5
+    def __init__(self, sketch:py5.Sketch=None, pos=(0,0), label='', w=30, h=30):
+        global s, elements
+
+        if sketch == None:
+            if s == None:
+                self.s = py5.get_current_sketch()
+            else:
+                self.s = s
+        else:
+            self.s = sketch
         
+        self.label = label
         self.h = h;     self.w = w
         self.update_xy(x=pos[0], y=pos[1])
         
@@ -34,37 +64,43 @@ class Element:
             font_loaded = True
         self.font = font
         font_loaded = True
+
+        elements.append(self)
     
     def update_xy(self, x=None, y=None):
         """update the center when changing the xy"""
         self.x = x
         self.y = y
         self.center = (self.x + self.w/2, self.y + self.h/2)
-        
+
+    def update_width(self, w=30):
+        self.w = w
+        self.center = (self.x + self.w/2, self.y + self.h/2)    
+    
     def mouse_in(self):
-        return True if self.p.mouse_x > self.x and self.p.mouse_x < self.x+self.w and \
-               self.p.mouse_y > self.y and self.p.mouse_y < self.y+self.h else False
+        return True if self.s.mouse_x > self.x and self.s.mouse_x < self.x+self.w and \
+               self.s.mouse_y > self.y and self.s.mouse_y < self.y+self.h else False
                
     def set_style(self, highlight=False, pressed=False, align_left=False):
-        self.p.stroke(*self.pressed_stroke) if pressed else self.p.stroke(*self.stroke)
-        self.p.fill(*self.highlight_fill) if highlight else self.p.fill(0)
-        self.p.stroke_weight(self.stroke_weight)
-        self.p.text_font(self.font)
-        self.p.rect_mode(self.p.CENTER)
+        self.s.stroke(*self.pressed_stroke) if pressed else self.s.stroke(*self.stroke)
+        self.s.fill(*self.highlight_fill) if highlight else self.s.fill(0)
+        self.s.stroke_weight(self.stroke_weight)
+        self.s.text_font(self.font)
+        self.s.rect_mode(self.s.CENTER)
         if align_left:
-            self.p.text_align(self.p.LEFT, self.p.CENTER)
+            self.s.text_align(self.s.LEFT, self.s.CENTER)
         else:
-            self.p.text_align(self.p.CENTER, self.p.CENTER)
+            self.s.text_align(self.s.CENTER, self.s.CENTER)
         
     def set_text_style(self):
-        self.p.fill(*self.text_fill);   self.p.stroke(*self.text_stroke)
+        self.s.fill(*self.text_fill);   self.s.stroke(*self.text_stroke)
 
 class Button(Element):
     def __init__(self, on_click=None, func_args=None, func_kwargs=None, **kwargs):
         """You can provide a function to be triggered by this button with on_click."""
-        w = kwargs['py5'].text_width(kwargs['label']) + 30
         self.func_args, self.func_kwargs = func_args, func_kwargs
-        super().__init__(**kwargs, w=w)
+        super().__init__(**kwargs)
+        self.update_width(self.s.text_width(self.label) + 30)
 
         self.on_click = on_click
         self.prev_mouse_pressed = False
@@ -73,20 +109,20 @@ class Button(Element):
         mouse_in = self.mouse_in()
         
         pressed = False
-        if mouse_in and self.p.is_mouse_pressed:
+        if mouse_in and self.s.is_mouse_pressed:
             pressed = True
             if not self.prev_mouse_pressed:
                 self.on_click( *(self.func_args if self.func_args else ()),
                                   **(self.func_kwargs if self.func_kwargs else {}))
         
-        with self.p.push_style():
+        with self.s.push_style():
             self.set_style(highlight=mouse_in, pressed=pressed)
-            self.p.rect(self.center[0], self.center[1], 
+            self.s.rect(self.center[0], self.center[1], 
                         self.w-self.stroke_weight, self.h-self.stroke_weight)
             self.set_text_style()
-            self.p.text(self.label, self.center[0], self.center[1])
+            self.s.text(self.label, self.center[0], self.center[1])
         
-        self.prev_mouse_pressed = self.p.is_mouse_pressed
+        self.prev_mouse_pressed = self.s.is_mouse_pressed
 
 # class Slider(object):
 #     # TODO: turn this basic class into a Element
@@ -122,16 +158,16 @@ class Button(Element):
 #         #print(f'current value: {self.value}')
 
 class Text_Input(Element):
-    def __init__(self, w=150, execute_func=None, use_callback=True, func_args=None, func_kwargs=None, **kwargs):
+    def __init__(self, w=150, on_enter=None, use_callback=True, func_args=None, func_kwargs=None, **kwargs):
         """A minimal text input field. Click to select and write a text input.
         Please note that the writing speed is limited by the set framerate, 
         which typically will be below accustomed keyboard writing speed.
-        You can provide a function to be triggered when pressing enter with execute_func.
+        You can provide a function to be triggered when pressing enter with on_enter.
         This function will receive the written input text as its first argument"""
         super().__init__(**kwargs, w=w)
         self.active = False
         self.input = ''
-        self.execute_func, self.func_args, self.func_kwargs = execute_func, func_args, func_kwargs
+        self.execute_func, self.func_args, self.func_kwargs = on_enter, func_args, func_kwargs
         
         # use_callback = True allows running a text input within draw() without need for a key_pressed() function
         self.use_callback = use_callback
@@ -143,7 +179,7 @@ class Text_Input(Element):
     def run(self):
         mouse_in = self.mouse_in()
         pressed = False
-        if self.p.is_mouse_pressed:
+        if self.s.is_mouse_pressed:
             if mouse_in: 
                 pressed = True
                 self.active = True
@@ -153,19 +189,19 @@ class Text_Input(Element):
         if not self.use_callback:
             self.read_sketch()
 
-        with self.p.push_style():
+        with self.s.push_style():
             self.set_style(highlight=mouse_in, pressed=pressed, align_left=True)
-            self.p.rect(self.center[0], self.center[1], 
+            self.s.rect(self.center[0], self.center[1], 
                         self.w-self.stroke_weight, self.h-self.stroke_weight)
             self.set_text_style()
             if self.input == '':
                 if not self.active:
-                    self.p.fill(127)
-                    self.p.text('enter input', self.x+7, self.center[1])
+                    self.s.fill(127)
+                    self.s.text('enter input', self.x+7, self.center[1])
             else:
                 blink = '|' if time.time() % 2 > 1.0 and self.active else ''
-                self.p.rect_mode(self.p.CORNER)
-                self.p.text(self.input + blink, self.x+7, self.y, self.w-15, self.h)
+                self.s.rect_mode(self.s.CORNER)
+                self.s.text(self.input + blink, self.x+7, self.y, self.w-15, self.h)
 
     def read(self, key):
         if self.active:
@@ -184,17 +220,17 @@ class Text_Input(Element):
         per frame.
         """
         if self.active:
-            if not self.prev_key_pressed and self.p.is_key_pressed:
-                if self.p.key == '\n':
+            if not self.prev_key_pressed and self.s.is_key_pressed:
+                if self.s.key == '\n':
                     if self.execute_func != None:
                         self.execute_func(self.input, *(self.func_args if self.func_args else ()),
                                                     **(self.func_kwargs if self.func_kwargs else {}))
-                elif self.p.key_code == 8:
+                elif self.s.key_code == 8:
                     self.input = self.input[:-1]
                 else:
-                    self.input += self.p.key
+                    self.input += self.s.key
         
-        self.prev_key_pressed = self.p.is_key_pressed
+        self.prev_key_pressed = self.s.is_key_pressed
 
     def get_input(self):
         return self.input
@@ -223,9 +259,17 @@ class Toggle(Element):
     pass
 
 class Organizer:
-    def __init__(self, py5=None, pos:tuple[int,int]=(0,0), max_w=None, max_h=None):
+    def __init__(self, sketch:py5.Sketch=None, pos:tuple[int,int]=(0,0), max_w=None, max_h=None):
         # TODO: add invisible borders argument, consider skip first spacer argument
-        self.p = py5
+        
+        if sketch == None:
+            if s == None:
+                self.s = py5.get_current_sketch()
+            else:
+                self.s = s
+        else:
+            self.s = sketch
+
         self.spacer_height = 10
         self.spacer_width = 10
         self.elements = []
@@ -234,6 +278,9 @@ class Organizer:
         self.max_w, self.max_h = max_w, max_h
         self.update_xy(pos[0], pos[1])
 
+        global organizers
+        organizers.append(self)
+
     def update_xy(self, x=None, y=None):
         self.x = x
         self.y = y
@@ -241,9 +288,12 @@ class Organizer:
     def run(self):
         for element in self.elements:
             element.run()
-        with self.p.push_style():
-            self.p.stroke(127,);      self.p.no_fill();     self.p.stroke_weight(1)
-            self.p.rect(self.x, self.y, self.w, self.h)
+        self.draw()
+
+    def draw(self):
+        with self.s.push_style():
+            self.s.stroke(127,);      self.s.no_fill();     self.s.stroke_weight(1)
+            self.s.rect(self.x, self.y, self.w, self.h)
 
     def add(self, element:Element):
         self.elements.append(element)
@@ -350,9 +400,9 @@ class Row(Organizer):
             offset_w += element.w + self.spacer_width
 
 
-def print_coordinates(py5=None):
+def print_coordinates(sketch:py5.Sketch=None):
     """"print the currently moused over coordinates"""
-    print(f'x: {py5.mouse_x} y: {py5.mouse_y}')
+    print(f'x: {sketch.mouse_x} y: {sketch.mouse_y}')
 
 if __name__ == '__main__':
     pass

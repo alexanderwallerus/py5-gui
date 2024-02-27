@@ -8,8 +8,8 @@ import random
 def setup():
     global plt0, plt1, xs, ys0, ys1, scatter_y, scatter_col, vlines, scatter_choice
     py5.size(530, 1000, py5.P2D)
-    plt0 = py5gui.Plot(py5=py5.get_current_sketch(), x=10, y= 10, w=500, h=500)
-    plt1 = py5gui.Plot(py5=py5.get_current_sketch(), x=10, y=570, w=500, h=200)
+    plt0 = py5gui.Plot(x=10, y= 10, w=500, h=500)
+    plt1 = py5gui.Plot( x=10, y=570, w=500, h=200, sketch=py5.get_current_sketch())
 
     xs = [0]
     ys0 = [0]
@@ -31,10 +31,10 @@ def draw():
     plt0.scatter(xs, scatter_y, diameter=7, marker='circle')
     plt0.show(title='3 plots', xlabel='x axis', ylabel='y axis')#, ylimit=(-10, None))
 
-    py5gui.legend(py5, {'red': (255, 0, 0)}, 100, 485, frame=False)
+    py5gui.legend({'red': (255, 0, 0)}, 100, 485, frame=False)
 
-    legend = py5gui.legend(py5, {'graph 0': (0, 255, 255), 'graph 1': (255, 0, 0), 'scatter': (255,)},
-                           0, 0, horizontal=False, to_graphics=True)
+    legend = py5gui.legend({'graph 0': (0, 255, 255), 'graph 1': (255, 0, 0), 'scatter': (255,)},
+                           0, 0, horizontal=False, to_graphics=True, sketch=py5.get_current_sketch())
     py5.image(legend, 10, 485)
 
     plt1.axvline(vlines, color=(255, 255, 0))
@@ -42,7 +42,7 @@ def draw():
     plt1.show(x_decimals=0, show_outline=True)
 
     # Plotting with 2 y axis and plotting to py5image example 
-    plt2 = py5gui.Plot(py5, x=0, y=0, w=500, h=200)
+    plt2 = py5gui.Plot(x=0, y=0, w=500, h=200)
     plt2.scatter(xs, scatter_choice, color=scatter_col, marker='triangle', y_axis=1)
     plt2.plot(xs, ys0, y_axis=0)
     img = plt2.show(to_py5image=True)
