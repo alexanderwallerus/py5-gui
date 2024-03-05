@@ -7,7 +7,7 @@ import py5gui as ui
 confirm_click = lambda : print('triggered button')
 print_text = lambda text, end='' : print(f'{text}{end}')
 change_background = lambda : py5.background(py5.random(255), py5.random(255), py5.random(255))
-print_input = lambda text : print(text)
+print_input = lambda value : print(value)
 
 def setup():
     py5.size(500, 500, py5.P2D)
@@ -18,7 +18,7 @@ def setup():
     # ui.run() will run all created elements
     ui.Button(label='print to console', pos=(150, 30), on_click=print_text, func_args=('first line',), 
                                            func_kwargs={'end':'\nsecond line :)'})
-    ui.Text_Input(pos=(20, 90), on_enter=print_input)
+    ui.Text_Input(pos=(20, 90), on_enter=print_input, label='enter to print', default='my input')
     # elements can can be stored within the sketch instance to .run() just a subselection instead of all elements
     py5.get_current_sketch().my_inputs = [ui.Text_Input(pos=(320, 90), on_enter=print_input)]
 
@@ -39,7 +39,7 @@ def setup():
 
     with ui.Row(pos=(220, 200), max_w=None, max_h=None) as nested_row:
         with ui.Col(max_h=None) as first_col:
-            first_col.add(ui.Button(label='a', on_click=lambda:print('a')))
+            a_button = first_col.add(ui.Button(label='a', on_click=lambda:print('a')))
             first_col.add(ui.Button(label='b', on_click=lambda:print('b')))
         nested_row.add(first_col)
         with ui.Col() as second_col:
@@ -49,7 +49,8 @@ def setup():
             second_col.add(nested_nested_row)
             second_col.add(ui.Button(label='efghij', on_click=lambda:print('efghij')))
         nested_row.add(second_col)
-
+    # change something on the stored button after creation
+    a_button.label = 'A!'
     
 def draw():
     ui.run()

@@ -158,20 +158,28 @@ class Button(Element):
 #         #print(f'current value: {self.value}')
 
 class Text_Input(Element):
-    def __init__(self, w=150, on_enter=None, use_callback=True, func_args=None, func_kwargs=None, **kwargs):
+    def __init__(self, w=150, on_enter=None, use_callback=True, label='enter input', default='', func_args=None, func_kwargs=None, **kwargs):
         """A minimal text input field. Click to select and write a text input.
-        Please note that the writing speed is limited by the set framerate, 
+        When use_callback=True you will need to add a key_pressed callback from your sketch:
+        
+        def key_pressed(e):
+            ui.connect_keyboard(e)
+        
+        Without use_callback this is not necessary but your writing speed will be limited by the set framerate, 
         which typically will be below accustomed keyboard writing speed.
+        
         You can provide a function to be triggered when pressing enter with on_enter.
         This function will receive the written input text as its first argument"""
-        super().__init__(**kwargs, w=w)
+        
+        super().__init__(label=label, **kwargs, w=w)
         self.active = False
-        self.input = ''
+        self.input = default
         self.execute_func, self.func_args, self.func_kwargs = on_enter, func_args, func_kwargs
         
         # use_callback = True allows running a text input within draw() without need for a key_pressed() function
         self.use_callback = use_callback
         self.prev_key_pressed = False
+        self.cursor = len(self.input)
         
         global text_inputs
         text_inputs.append(self)
@@ -194,25 +202,25 @@ class Text_Input(Element):
             self.s.rect(self.center[0], self.center[1], 
                         self.w-self.stroke_weight, self.h-self.stroke_weight)
             self.set_text_style()
+            self.s.rect_mode(self.s.CORNER)
+            self.s.text(self.input, self.x+7, self.y, self.w-15, self.h)
+
+            if self.active and time.time() % 1.5 > 0.75:
+                cursor_offset = self.s.text_width(self.input[0:self.cursor])
+                text_height = self.s.text_ascent() + self.s.text_descent()
+                self.s.line(self.x+8+cursor_offset, self.center[1] - text_height/2,
+                            self.x+8+cursor_offset, self.center[1] + text_height/2)
+            
             if self.input == '':
-                if not self.active:
-                    self.s.fill(127)
-                    self.s.text('enter input', self.x+7, self.center[1])
+                self.s.fill(127)
             else:
-                blink = '|' if time.time() % 2 > 1.0 and self.active else ''
-                self.s.rect_mode(self.s.CORNER)
-                self.s.text(self.input + blink, self.x+7, self.y, self.w-15, self.h)
+                self.s.fill(64)
+            self.s.text_align(self.s.RIGHT)
+            self.s.text(self.label, self.x+self.w-7, self.center[1])
 
     def read(self, key):
         if self.active:
-            if key.get_key() == '\n':
-                if self.execute_func != None:
-                    self.execute_func(self.input, *(self.func_args if self.func_args else ()),
-                                                 **(self.func_kwargs if self.func_kwargs else {}))
-            elif key.get_key_code() == 8:
-                self.input = self.input[:-1]
-            else:
-                self.input += key.get_key()
+            self.process_key(key.get_key(), key.get_key_code())
 
     def read_sketch(self):
         """Alternative to approach to the callback to be run within the frame loop. This doesn't require a callback
@@ -221,18 +229,33 @@ class Text_Input(Element):
         """
         if self.active:
             if not self.prev_key_pressed and self.s.is_key_pressed:
-                if self.s.key == '\n':
-                    if self.execute_func != None:
-                        self.execute_func(self.input, *(self.func_args if self.func_args else ()),
-                                                    **(self.func_kwargs if self.func_kwargs else {}))
-                elif self.s.key_code == 8:
-                    self.input = self.input[:-1]
-                else:
-                    self.input += self.s.key
-        
+                self.process_key(self.s.key, self.s.key_code)
         self.prev_key_pressed = self.s.is_key_pressed
 
-    def get_input(self):
+    def process_key(self, key_char, key_code):
+        if key_char == '\n':
+            if self.execute_func != None:
+                self.execute_func(self.input, *(self.func_args if self.func_args else ()),
+                                           **(self.func_kwargs if self.func_kwargs else {}))
+        elif key_code == 37:
+            self.cursor = max(self.cursor - 1, 0)
+        elif key_code == 39:
+            self.cursor = min(self.cursor + 1, len(self.input))
+        elif key_code == 8:
+            # backspace
+            self.input = self.input[0:self.cursor-1] + self.input[self.cursor:]
+            self.cursor = max(self.cursor - 1, 0)
+        elif key_code == 147:
+            # delete
+            self.input = self.input[0:self.cursor] + self.input[self.cursor+1:]
+        elif key_char.isprintable():
+                self.input += key_char
+                self.cursor = min(self.cursor + 1, len(self.input))
+
+    def value(self, value=None):
+        """get()/set() function"""
+        if value != None:
+            self.input = value
         return self.input
 
 def connect_keyboard(key_event):
@@ -297,6 +320,7 @@ class Organizer:
 
     def add(self, element:Element):
         self.elements.append(element)
+        return element
 
     def __enter__(self):
         return self # makes the "with Col() as col" work
@@ -327,6 +351,7 @@ class Col(Organizer):
             self.elements.append(element)
             element.update_xy(self.x + self.spacer_width/2, self.offset_h)
             self.offset_h += element.h + self.spacer_height
+            return element
         else:
             print(f'{element} doesn\'t fit in the column and won\'t be added')
 
@@ -371,6 +396,7 @@ class Row(Organizer):
             self.elements.append(element)
             element.update_xy(self.offset_w, self.y + self.spacer_height/2)
             self.offset_w += element.w + self.spacer_width
+            return element
         else:
             print(f'{element} doesn\'t fit in the row and won\'t be added')
       
