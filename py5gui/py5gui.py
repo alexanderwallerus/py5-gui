@@ -245,7 +245,7 @@ class Text_Input(Element):
             # backspace
             self.input = self.input[0:self.cursor-1] + self.input[self.cursor:]
             self.cursor = max(self.cursor - 1, 0)
-        elif key_code == 147:
+        elif key_code == 127 or key_code == 147:
             # delete
             self.input = self.input[0:self.cursor] + self.input[self.cursor+1:]
         elif key_char.isprintable():
