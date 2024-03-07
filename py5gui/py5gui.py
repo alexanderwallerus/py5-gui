@@ -158,7 +158,8 @@ class Button(Element):
 #         #print(f'current value: {self.value}')
 
 class Text_Input(Element):
-    def __init__(self, w=150, on_enter=None, use_callback=True, label='enter input', default='', func_args=None, func_kwargs=None, **kwargs):
+    def __init__(self, w:int=150, on_enter:callable=None, use_callback:bool=True, 
+                label:str='enter input', default:str='', func_args:list=None, func_kwargs:dict=None, **kwargs):
         """A minimal text input field. Click to select and write a text input.
         When use_callback=True you will need to add a key_pressed callback from your sketch:
         
@@ -173,7 +174,7 @@ class Text_Input(Element):
         
         super().__init__(label=label, **kwargs, w=w)
         self.active = False
-        self.input = default
+        self.input = str(default)
         self.execute_func, self.func_args, self.func_kwargs = on_enter, func_args, func_kwargs
         
         # use_callback = True allows running a text input within draw() without need for a key_pressed() function
