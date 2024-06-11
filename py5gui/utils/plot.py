@@ -94,7 +94,7 @@ class Plot:
 
         return decimals, form
 
-    def tick_pos_labels(self, p, nums, start, end, horizontal=True, decimals=None):
+    def tick_pos_labels(self, p, nums, start, end, horizontal=True, decimals=None, ylimit:tuple=None):
         # TODO: Could add an alternative find_ticks() more resembling matplotlib. If mpl plots data [0.31, ..., 1.67]
         # it won't lerp ticks from A to B, but have ~3-8 ticks (depending on size) like [0.25, 0.75, 0.125, 0.175]
         # => it will np.arange(lower, higher, tick_step) with the lower and upper being min(nums -%tick_step)
@@ -108,6 +108,8 @@ class Plot:
         nums = np.unique(nums)
         # find the widest number text
         maxn = np.max(nums);  minn = np.min(nums)
+        if ylimit:
+            maxn = ylimit[1]; minn = ylimit[0]
         
         decimals, form = self.find_decimals(minn, maxn, decimals=decimals)
 
@@ -172,14 +174,15 @@ class Plot:
 
 
     def show(self, x_decimals=None, title=None, xlabel=None, ylabel=None, y_decimals=None,
-             ylimit=(None, None), to_py5image=False, y_decimals_1=None, ylimit_1=(None, None), 
+             ylimit=(None, None), to_py5image=False, y_decimals_1=None, ylimit_1=(None, None), full_y_limit_range=(True, True), 
              empty_warning=True, show_outline=False, show_helper_lines=False):
         """If to_py5image=True, this function will not draw onto the plot's py5 instance, but instead return a py5_graphics
         object with the plot, which can be used as an image, when the plot doesn't need to be updated every frame.
         .show() can also draw a title, xlabel, and ylabel if provided with a string argument.
         .show() can further be provided with x_decimals= and y_decimals= for overriding the shown decimal places, and with a
         ylimit=(lower, upper) to only plot numerical data above and/or below a certain point. 
-        ylimit=(-7, None) for example would only plot data points with a y of -7 or higher"""
+        ylimit=(-7, None) for example would only plot data points with a y of -7 or higher.
+        full_y_limit_range=(False,False) preserves autoscaling while constraining values exceeding ylimit or ylimit_1 to within those ranges."""
         if not to_py5image:
             p = self.s
         else:
@@ -189,6 +192,9 @@ class Plot:
 
         multi_y = [plt['y axis'] == 1 for plt in self.plots]
         multi_y = True if True in multi_y else False
+
+        full_y_limit_range = [True if full_y_limit_range[0] and ylimit[0] and ylimit[1] else False, 
+                              True if full_y_limit_range[1] and ylimit_1[0] and ylimit_1[1] else False]
 
         #-------------------------NUMERICAL OR CATEGORICAL Y AXIS-------------------------
 
@@ -260,8 +266,12 @@ class Plot:
         min_all_xs = np.min(total_xs);    max_all_xs = np.max(total_xs)
         if not y_categorical:
             min_all_ys = np.min(all_ys);    max_all_ys = np.max(all_ys)
+            if full_y_limit_range[0]:
+                min_all_ys = ylimit[0];    max_all_ys = ylimit[1]
         if multi_y and not y_categorical_1:
             min_all_ys_1 = np.min(all_ys_1);    max_all_ys_1 = np.max(all_ys_1)
+            if full_y_limit_range[1]:
+                min_all_ys_1 = ylimit_1[0];    max_all_ys_1 = ylimit_1[1]
 
         #-------------------------CALC DIMENSIONS-------------------------
         p.no_fill();  p.stroke(255)
@@ -297,16 +307,18 @@ class Plot:
         xticks = self.tick_pos_labels(p, total_xs, self.xii, self.rii, decimals=x_decimals)
         
         ylookup, ylookup_1 = None, None
+        mim_max_y = ylimit if full_y_limit_range[0] else None
         if y_categorical:
             yticks, ylookup = self.tick_pos_labels_categorical(all_ys, self.yii, self.bii, horizontal=False, order=order)
         else:
-            yticks = self.tick_pos_labels(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals)
+            yticks = self.tick_pos_labels(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals, ylimit=mim_max_y)
         
         if multi_y:
+            mim_max_y_1 = ylimit_1 if full_y_limit_range[1] else None
             if y_categorical_1:
                 yticks_1, ylookup_1 = self.tick_pos_labels_categorical(all_ys_1, self.yii, self.bii, horizontal=False, order=order_1)
             else:
-                yticks_1 = self.tick_pos_labels(p, all_ys_1, self.yii, self.bii, horizontal=False, decimals=y_decimals_1)
+                yticks_1 = self.tick_pos_labels(p, all_ys_1, self.yii, self.bii, horizontal=False, decimals=y_decimals_1, ylimit=mim_max_y_1)
 
         #-------------------------DRAW TEXT-------------------------
         with p.push_style():

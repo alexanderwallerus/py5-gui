@@ -29,7 +29,7 @@ def draw():
     plt0.plot(xs, ys0, color=(0, 255, 255), stroke_weight=3)
     plt0.plot(xs, ys1, color=(255, 0, 0))
     plt0.scatter(xs, scatter_y, diameter=7, marker='circle')
-    plt0.show(title='3 plots', xlabel='x axis', ylabel='y axis')#, ylimit=(-10, None))
+    plt0.show(title='3 plots', xlabel='x axis', ylabel='y axis')#, ylimit=(-10, None), full_y_limit_range=(False,False))
 
     py5gui.legend({'red': (255, 0, 0)}, 100, 485, frame=False)
 
