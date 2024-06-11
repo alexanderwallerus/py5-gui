@@ -193,8 +193,8 @@ class Plot:
         multi_y = [plt['y axis'] == 1 for plt in self.plots]
         multi_y = True if True in multi_y else False
 
-        full_y_limit_range = [True if full_y_limit_range[0] and ylimit[0] and ylimit[1] else False, 
-                              True if full_y_limit_range[1] and ylimit_1[0] and ylimit_1[1] else False]
+        full_y_limit_range = [True if full_y_limit_range[0] and ylimit[0] is not None and ylimit[1] is not None else False, 
+                              True if full_y_limit_range[1] and ylimit_1[0] is not None and ylimit_1[1] is not None else False]
 
         #-------------------------NUMERICAL OR CATEGORICAL Y AXIS-------------------------
 
