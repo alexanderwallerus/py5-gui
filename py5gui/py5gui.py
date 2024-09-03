@@ -124,38 +124,62 @@ class Button(Element):
         
         self.prev_mouse_pressed = self.s.is_mouse_pressed
 
-# class Slider(object):
-#     # TODO: turn this basic class into a Element
-#     def __init__(self, leftCoord, topCoord, min, max, value=None):
-#         if value == None:
-#             self.value = (max + min) / 2
-#         else:
-#             self.value = value
-#         self.leftCoord=leftCoord; self.topCoord=topCoord; self.min=min; self.max=max
-#         self.w = 80; self.h=8
-#         self.isDragged = False
+class Slider(Element):
+    def __init__(self, min=0.0, max=1.0, value=None, width=150, on_change:callable=None, label:str=None, **kwargs):
+        super().__init__(h=20, **kwargs)
+        if value is None:
+            self.value_ = (max + min) / 2
+        else:
+            self.value_ = value
+        self.min, self.max = min, max
+        self.update_width(width)
+        self.isDragged = False
+        self.on_change = on_change
+        self.label = None
+        self.knob_height = self.h
+        self.label = label
+        if self.label is not None:
+            self.h = self.h *1.6
+            while self.s.text_width(self.label) >= self.w - 1.5*self.knob_height:
+                self.label = self.label[:-1]
         
-#     def run(self):
-#         py5.push_style()
-#         py5.fill(127);  py5.no_stroke()
-#         py5.rect(self.leftCoord, self.topCoord, self.w, self.h, 4)   #radius=4
-#         py5.ellipse_mode(py5.CENTER)
-#         py5.stroke(255);    py5.fill(64)
-#         elliPos = py5.remap(self.value, self.min, self.max, 
-#                             self.leftCoord, self.leftCoord+self.w)
-#         py5.ellipse(elliPos, self.topCoord + self.h/2, 22, 22)
-#         if(not self.isDragged and py5.is_mouse_pressed):
-#             if(py5.mouse_x >= self.leftCoord and py5.mouse_x <= self.leftCoord + self.w and
-#                py5.mouse_y >= self.topCoord-10 and py5.mouse_y <= self.topCoord + 24):
-#                 self.isDragged = True
-#         if(self.isDragged and not py5.is_mouse_pressed):
-#             self.isDragged = False
-#         if(self.isDragged):
-#             newVal = py5.remap(py5.mouse_x, self.leftCoord, self.leftCoord + self.w,
-#                                self.min, self.max)
-#             self.value = py5.constrain(newVal, self.min, self.max)
-#         py5.pop_style()
-#         #print(f'current value: {self.value}')
+    def run(self):
+        with self.s.push_style():
+            if(not self.isDragged and self.s.is_mouse_pressed):
+                if(self.s.mouse_x >= self.x and self.s.mouse_x <= self.x + self.w and
+                self.s.mouse_y >= self.y-10 and self.s.mouse_y <= self.y + 24):
+                    self.isDragged = True
+            if(self.isDragged and not self.s.is_mouse_pressed):
+                self.isDragged = False
+                if self.on_change is not None:
+                    self.on_change(self.value_)
+            if(self.isDragged):
+                newVal = self.s.remap(self.s.mouse_x, self.x, self.x + self.w,
+                                self.min, self.max)
+                self.value_ = self.s.constrain(newVal, self.min, self.max)
+            
+            # # background cover
+            # self.s.fill(*self.fill); self.s.stroke(*self.fill); self.s.stroke_weight(self.stroke_weight)
+            # self.s.rect(self.x, self.y, self.w, self.h)
+
+            self.set_style(highlight=self.mouse_in(), pressed=self.isDragged)
+            # subtract half heights from both edges that only the knob will cover when at the edge
+            self.s.rect(self.center[0], self.center[1], self.w-self.knob_height, self.h, 8)
+            elliPos = self.s.remap(self.value_, self.min, self.max, 
+                                   self.x+self.knob_height/2, self.x+self.w-self.knob_height/2)
+            self.s.ellipse(elliPos, self.y + self.h - self.knob_height/2, self.knob_height, self.knob_height)
+
+            self.set_text_style()
+            self.s.text(f'{self.value_:.5g}', self.center[0], self.y + self.h - self.knob_height/2)
+            if self.label is not None:
+                self.s.fill(192)
+                self.s.text_align(self.s.RIGHT, self.s.TOP)
+                self.s.text(self.label, self.x+self.w-15, self.y+2)
+
+    def update_value(self, value):
+        self.value_ = float(value)
+
+    value:float = property(fget=lambda self : self.value_, fset=update_value)
 
 class Text_Input(Element):
     def __init__(self, w:int=150, on_enter:callable=None, use_callback:bool=True, 
@@ -239,10 +263,12 @@ class Text_Input(Element):
                 self.execute_func(self.input, *(self.func_args if self.func_args else ()),
                                            **(self.func_kwargs if self.func_kwargs else {}))
         elif key_code == 37:
+            # left arrow
             self.cursor = max(self.cursor - 1, 0)
         elif key_code == 39:
+            # right arrow
             self.cursor = min(self.cursor + 1, len(self.input))
-        elif key_code == 8:
+        elif key_code == 8 and self.cursor != 0:
             # backspace
             self.input = self.input[0:self.cursor-1] + self.input[self.cursor:]
             self.cursor = max(self.cursor - 1, 0)
@@ -250,7 +276,8 @@ class Text_Input(Element):
             # delete
             self.input = self.input[0:self.cursor] + self.input[self.cursor+1:]
         elif key_char.isprintable():
-                self.input += key_char
+                # self.input += key_char
+                self.input = self.input[0:self.cursor] + key_char + self.input[self.cursor:]
                 self.cursor = min(self.cursor + 1, len(self.input))
 
     def value(self, value=None):

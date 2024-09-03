@@ -4,9 +4,13 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..')) # insert and use the local py5gui package in the python path before an environment install
 import py5gui as ui
 
+background_color = (0,)
+def change_background():
+    global background_color
+    background_color = (py5.random(255), py5.random(255), py5.random(255))
+
 confirm_click = lambda : print('triggered button')
 print_text = lambda text, end='' : print(f'{text}{end}')
-change_background = lambda : py5.background(py5.random(255), py5.random(255), py5.random(255))
 print_input = lambda value : print(value)
 
 def setup():
@@ -51,8 +55,22 @@ def setup():
         nested_row.add(second_col)
     # change something on the stored button after creation
     a_button.label = 'A!'
+
+    with ui.Col(pos=(20, 350)) as sliders:
+        sliders.add(ui.Slider())
+        sliders.add(ui.Slider(min=-40_000, max=40_000, value=25))
+        sliders.add(ui.Slider(min=0.000_05, max=0.000_10, label='small number'))
+    ui.Slider(pos=(20, 460), width=200, on_change=lambda value: print(value))
+
+    with ui.Col(pos=(190, 350)) as linked_sliders:
+        recipient = linked_sliders.add(ui.Slider())
+        def set_recipient_value(value):
+            recipient.value = value
+        linked_sliders.add(ui.Slider(on_change=set_recipient_value))
     
 def draw():
+    global background_color
+    py5.background(*background_color)
     ui.run()
     
     # use the following line instead to just run the element stored in my_inputs[0]
