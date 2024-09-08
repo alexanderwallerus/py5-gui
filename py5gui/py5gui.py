@@ -24,17 +24,31 @@ def remap(value, inFrom, inTo, outFrom, outTo):
     return outFrom + (outTo - outFrom) * ((value - inFrom) / (inTo - inFrom))
 
 def use_sketch(sketch:py5.Sketch):
-    """Set the default sketch to be used for following created elements,
-    unless they are initialized with a specific sketch=argument of their own.
-    Calling is function is only required when using py5 in class mode, not in module mode.
-    Calling this function in your sketch's setup before you create ui elements allows you to ommit the elements'
-    respective sketch= arguments.
+    """Set the default sketch to be used for subsequently created elements 
+    and hook the UI into the sketch's key_pressed for Text_Input elements.
+    Notably Text_Input elements will also require your sketch to possess a def key_pressed(key_event): function.
+    This can function can be empty i.e. - pass - but it has to exist for the Text_Input to hook into it.
+    
+    This function is only needed when using py5 in class mode. In module mode the single py5 instance
+    will automatically be utilized for created elements.
+    
+    This function allows you to leave out the sketch= argument for created elements in class mode.
+    When using py5 in class mode provide the instance you want to connnect to 
+    (typically self in def setup()) as an argument.
 
     Args:
-        sketch (py5.Sketch): the py5 sketch to be used when in class mode, so generally the argument then is self.
+        sketch (py5.Sketch, optional): he py5 sketch to be used when in class mode, so typically this argument is self. Defaults to None.
     """
+
     global s
     s = sketch
+    s._add_post_hook('key_pressed', 'key_reading_hook', forward_key)
+
+def forward_key(sketch:py5.Sketch):
+    global text_inputs
+    key, key_code = sketch.key, sketch.key_code
+    for text_input in text_inputs:
+        text_input.process_key(key, key_code)
 
 def run():
     global elements
@@ -44,12 +58,26 @@ def run():
         o.draw()
 
 class Element:
-    def __init__(self, sketch:py5.Sketch=None, pos=(0,0), label='', w=30, h=30):
+    def __init__(self, sketch:py5.Sketch=None, pos:tuple=(0,0), label:str='', w:int=30, h:int=30):
+        """A general ui element parent class
+
+        Args:
+            sketch (py5.Sketch, optional): the sketch to be used for the element. If none is provided it will
+                - in py5 module mode use the single existing py5 sketch
+                - in class mode use the sketch that has been set with use_sketch(). Defaults to None.
+            pos (tuple, optional): the left top xy position of the created element. Defaults to (0,0).
+            label (str, optional): label. Defaults to ''.
+            w (int, optional): the width of the element. You may not always know this at time of creation, i.e. when you 
+                want the width to fit the text_width of a text you create in the element's def __init__().
+                For this case elements possess a update_width(new_width) function to update the width. Defaults to 30.
+            h (int, optional): the height of the element. Defaults to 30.
+        """
         global s, elements
 
-        if sketch == None:
-            if s == None:
+        if sketch is None:
+            if s is None:
                 self.s = py5.get_current_sketch()
+                self.s._add_post_hook('key_pressed', 'key_reading_hook', forward_key)
             else:
                 self.s = s
         else:
@@ -104,8 +132,17 @@ class Element:
         self.s.fill(*self.text_fill);   self.s.stroke(*self.text_stroke)
 
 class Button(Element):
-    def __init__(self, on_click=None, func_args=None, func_kwargs=None, **kwargs):
-        """You can provide a function to be triggered by this button with on_click."""
+    def __init__(self, on_click:Callable=None, func_args:list=None, func_kwargs:dict=None, **kwargs):
+        """A clickable button that can trigger functions
+
+        Args:
+            pos (tuple, optional): the left top (x, y) position of the created element. Defaults to (0,0).
+                Optional when used within the context of a Row() or Col().
+            on_click (Callable, optional): A function to be triggered upon clicking the button. Defaults to None.
+            func_args (list, optional): extra arguments for the provided on_click functions. Defaults to None.
+            func_kwargs (dict, optional): extra keyword arguments for the provided on_click functions. Defaults to None.
+        """
+        
         self.func_args, self.func_kwargs = func_args, func_kwargs
         super().__init__(**kwargs)
         self.update_width(self.s.text_width(self.label) + 30)
@@ -139,6 +176,8 @@ class Slider(Element):
         """Slider Element
 
         Args:
+            pos (tuple, optional): the left top (x, y) position of the created element. Defaults to (0,0).
+                Optional when used within the context of a Row() or Col().
             min (float, optional): minimal slider end. Defaults to 0.0.
             max (float, optional): maximal slider end. Defaults to 1.0.
             value (float, optional): starting slider value - (min+max)/2 at default. Defaults to None.
@@ -212,27 +251,38 @@ class Slider(Element):
     value:float = property(fget=lambda self : self.value_, fset=update_value)
 
 class Text_Input(Element):
-    def __init__(self, w:int=150, on_enter:Callable=None, use_callback:bool=True, 
-                label:str='enter input', default:str='', func_args:list=None, func_kwargs:dict=None, **kwargs):
-        """A minimal text input field. Click to select and write a text input.
-        When use_callback=True you will need to add a key_pressed callback from your sketch:
+    def __init__(self, w:int=150, on_enter:Callable=None, label:str='enter input', default:str='', 
+                 func_args:list=None, func_kwargs:dict=None, use_hook:bool=True, **kwargs):
+        """Text Input field. Click to select and write a text input.
         
-        def key_pressed(e):
-            ui.connect_keyboard(e)
-        
-        Without use_callback this is not necessary but your writing speed will be limited by the set framerate, 
-        which typically will be below accustomed keyboard writing speed.
+        IMPORTANT: For the Text_Input element to read your key presses your sketch requires a def key_pressed(key_event): function.
+        This function just has to be defined - can be a stub or empty like:   def key_pressed(key_event): pass   
         
         You can provide a function to be triggered when pressing enter with on_enter.
-        This function will receive the written input text as its first argument"""
+        This function will receive the written input text as its first argument
+
+        Args:
+            pos (tuple, optional): the left top (x, y) position of the created element. Defaults to (0,0).
+                Optional when used within the context of a Row() or Col().
+            w (int, optional): width of the element. Defaults to 150.
+            on_enter (Callable, optional): A function to run when pressing enter with at least one argument.
+                This first argument will be provided with the current input field content upon execution. Defaults to None.
+            label (str, optional): a prompt description for the requested input. Defaults to 'enter input'.
+            default (str, optional): the starting input. Defaults to ''.
+            func_args (list, optional): Extra arguments to use for your on_enter function. The current input field content will be added as
+                a first argument. Defaults to None.
+            func_kwargs (dict, optional): Extra keyword arguments to use for your on_enter function. Defaults to None.
+            use_hook (bool, optional): When use_hook=False your writing speed will be limited by the set framerate, which typically 
+                will be below accustomed keyboard writing speed instead of hooking to the immediate key_pressed function. Defaults to True.
+        """
         
         super().__init__(label=label, **kwargs, w=w)
         self.active = False
         self.input = str(default)
         self.execute_func, self.func_args, self.func_kwargs = on_enter, func_args, func_kwargs
         
-        # use_callback = True allows running a text input within draw() without need for a key_pressed() function
-        self.use_callback = use_callback
+        # use_hook = True allows running a text input within draw() without need for a key_pressed() function
+        self.use_hook = use_hook
         self.prev_key_pressed = False
         self.cursor = len(self.input)
         
@@ -249,7 +299,7 @@ class Text_Input(Element):
             else:
                 self.active = False
 
-        if not self.use_callback:
+        if not self.use_hook:
             self.read_sketch()
 
         with self.s.push_style():
@@ -273,13 +323,9 @@ class Text_Input(Element):
             self.s.text_align(self.s.RIGHT)
             self.s.text(self.label, self.x+self.w-7, self.center[1])
 
-    def read(self, key):
-        if self.active:
-            self.process_key(key.get_key(), key.get_key_code())
-
     def read_sketch(self):
         """Alternative to approach to the callback to be run within the frame loop. This doesn't require a callback
-        from the sketche's def key_pressed() through connect_keyboard(key_event) but can only read one key press
+        from the sketche's def key_pressed() through connect_keyboard(key_event) or a hook but can only read one key press
         per frame.
         """
         if self.active:
@@ -288,33 +334,48 @@ class Text_Input(Element):
         self.prev_key_pressed = self.s.is_key_pressed
 
     def process_key(self, key_char, key_code):
-        if key_char == '\n':
-            if not self.execute_func is None:
-                self.execute_func(self.input, *(self.func_args if self.func_args else ()),
-                                           **(self.func_kwargs if self.func_kwargs else {}))
-        elif key_code == 37:
-            # left arrow
-            self.cursor = max(self.cursor - 1, 0)
-        elif key_code == 39:
-            # right arrow
-            self.cursor = min(self.cursor + 1, len(self.input))
-        elif key_code == 8 and self.cursor != 0:
-            # backspace
-            self.input = self.input[0:self.cursor-1] + self.input[self.cursor:]
-            self.cursor = max(self.cursor - 1, 0)
-        elif key_code == 127 or key_code == 147:
-            # delete
-            self.input = self.input[0:self.cursor] + self.input[self.cursor+1:]
-        elif key_char.isprintable():
-                # self.input += key_char
-                self.input = self.input[0:self.cursor] + key_char + self.input[self.cursor:]
+        if self.active:
+            if key_char == '\n':
+                if not self.execute_func is None:
+                    self.execute_func(self.input, *(self.func_args if self.func_args else ()),
+                                            **(self.func_kwargs if self.func_kwargs else {}))
+            elif key_code == 37:
+                # left arrow
+                self.cursor = max(self.cursor - 1, 0)
+            elif key_code == 39:
+                # right arrow
                 self.cursor = min(self.cursor + 1, len(self.input))
+            elif key_code == 8 and self.cursor != 0:
+                # backspace
+                self.input = self.input[0:self.cursor-1] + self.input[self.cursor:]
+                self.cursor = max(self.cursor - 1, 0)
+            elif key_code == 127 or key_code == 147:
+                # delete
+                self.input = self.input[0:self.cursor] + self.input[self.cursor+1:]
+            elif key_char.isprintable():
+                    # self.input += key_char
+                    self.input = self.input[0:self.cursor] + key_char + self.input[self.cursor:]
+                    self.cursor = min(self.cursor + 1, len(self.input))
 
-    def value(self, value=None):
-        """get()/set() function"""
-        if value != None:
-            self.input = value
-        return self.input
+    def update_value(self, value):   self.input = str(value)
+    value:str = property(fget=lambda self : self.input, fset=update_value)
+
+def connect_keyboard(key_event):
+    """Alternative to use_sketch() that can be called from a sketch's def key_pressed() for forwarding key presses
+    to Text_Input elements.
+
+    # Example:
+    def key_pressed(e):
+        ui.connect_keyboard_ui(e)
+    """
+
+    # An alternatives to this approach could be checking p.key within the input's .run() which makes it loose keys
+    # that are typed faster than its framerate, or using from pynput.keyboard import Key, Listener which seems
+    # to come with a small performance impact (~300 hz in a 2700hz to 2400hz example) The pynput approach
+    # should still be implemented as an alternative for less performance critical applications
+    global text_inputs
+    for text_input in text_inputs:
+        text_input.process_key(key_event.key, key_event.key_code)
 
 class Toggle(Element):
     def __init__(self, value:bool=False, labels:str|list[str,str]='', 
@@ -323,6 +384,8 @@ class Toggle(Element):
         with the toggle.value variable.
 
         Args:
+            pos (tuple, optional): the left top (x, y) position of the created element. Defaults to (0,0).
+                Optional when used within the context of a Row() or Col().
             value (bool, optional): Starting Value. Defaults to False.
             labels (str | list[str,str], optional): The two label alternatives the toggle will show depending
             on its state. If only a string is provided this string will always be shown instead. Defaults to ''.
@@ -380,6 +443,7 @@ class Toggle(Element):
         self.prev_mouse_pressed = self.s.is_mouse_pressed
 
 class Text(Element):
+    # TODO
     def __init__(self, text='', w=100, h=20, **kwargs):
         super().__init__(w=w, h=h, **kwargs)
         pass
@@ -388,6 +452,7 @@ class Text(Element):
         pass
 
 class Minimal_Base(Element):
+    # TODO
     pass
 
 class Selector(Element):
@@ -408,15 +473,16 @@ def connect_keyboard(key_event):
     # should still be implemented as an alternative for less performance critical applications
     global text_inputs
     for text_input in text_inputs:
-        text_input.read(key_event)
+        text_input.process_key(key_event)
 
 class Organizer:
     def __init__(self, sketch:py5.Sketch=None, pos:tuple[int,int]=(0,0), max_w=None, max_h=None):
         # TODO: add invisible borders argument, consider skip first spacer argument
         
-        if sketch == None:
-            if s == None:
+        if sketch is None:
+            if s is None:
                 self.s = py5.get_current_sketch()
+                self.s._add_post_hook('key_pressed', 'key_reading_hook', forward_key)
             else:
                 self.s = s
         else:

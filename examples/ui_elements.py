@@ -13,6 +13,9 @@ confirm_click = lambda : print('triggered button')
 print_text = lambda text, end='' : print(f'{text}{end}')
 print_input = lambda value : print(value)
 
+def key_pressed(key_event): pass
+    # this function is required for text inputs to be able to hook into key presses
+
 def setup():
     py5.size(500, 500, py5.P2D)
     py5.background(0)
@@ -83,9 +86,6 @@ def draw():
     # py5.get_current_sketch().my_inputs[0].run()
 
     #print_coordinates(py5.get_current_sketch())
-
-def key_pressed(e):
-    ui.connect_keyboard(e)
 
 def exit():
     print('closing')
