@@ -58,15 +58,21 @@ def setup():
 
     with ui.Col(pos=(20, 350)) as sliders:
         sliders.add(ui.Slider())
-        sliders.add(ui.Slider(min=-40_000, max=40_000, value=25))
+        sliders.add(ui.Slider(min=-40_000, max=40_000, value=4000))
         sliders.add(ui.Slider(min=0.000_05, max=0.000_10, label='small number'))
-    ui.Slider(pos=(20, 460), width=200, on_change=lambda value: print(value))
+    ui.Slider(pos=(20, 460), width=200, step_decimals=1, on_change=lambda value: print(value))
+    ui.Slider(pos=(230, 460), width=85, step_decimals=0, value=1)
 
     with ui.Col(pos=(190, 350)) as linked_sliders:
         recipient = linked_sliders.add(ui.Slider())
         def set_recipient_value(value):
             recipient.value = value
         linked_sliders.add(ui.Slider(on_change=set_recipient_value))
+
+    with ui.Col(pos=(365, 350)) as toggles:
+        toggles.add(ui.Toggle(labels='click me'))
+        toggles.add(ui.Toggle(labels=('off', 'on'), on_click=lambda value: print(f'turned toggle to {value}')))
+
     
 def draw():
     global background_color

@@ -2,6 +2,7 @@ import os
 from .utils.plot import Plot, legend    # the relative . is important for a pip install to find modules relative to the parent package (from py5gui.utils.plot import... would also work)
 import time
 import py5
+from typing import Callable
 
 font_loaded, font = False, None
 
@@ -23,8 +24,15 @@ def remap(value, inFrom, inTo, outFrom, outTo):
     return outFrom + (outTo - outFrom) * ((value - inFrom) / (inTo - inFrom))
 
 def use_sketch(sketch:py5.Sketch):
-    """"Set the default sketch to be used for elements unless they are initialized with a specific sketch
-    This is only required when using py5 in class mode, not in module mode"""
+    """Set the default sketch to be used for following created elements,
+    unless they are initialized with a specific sketch=argument of their own.
+    Calling is function is only required when using py5 in class mode, not in module mode.
+    Calling this function in your sketch's setup before you create ui elements allows you to ommit the elements'
+    respective sketch= arguments.
+
+    Args:
+        sketch (py5.Sketch): the py5 sketch to be used when in class mode, so generally the argument then is self.
+    """
     global s
     s = sketch
 
@@ -125,7 +133,26 @@ class Button(Element):
         self.prev_mouse_pressed = self.s.is_mouse_pressed
 
 class Slider(Element):
-    def __init__(self, min=0.0, max=1.0, value=None, width=150, on_change:callable=None, label:str=None, **kwargs):
+    def __init__(self, min:float=0.0, max:float=1.0, value:float=None, width:int=150,
+                 on_change:Callable=None, label:str=None, step_decimals:int=None, 
+                 func_args:list=None, func_kwargs:dict=None, **kwargs):
+        """Slider Element
+
+        Args:
+            min (float, optional): minimal slider end. Defaults to 0.0.
+            max (float, optional): maximal slider end. Defaults to 1.0.
+            value (float, optional): starting slider value - (min+max)/2 at default. Defaults to None.
+            width (int, optional): pixel width of the slider. Defaults to 150.
+            on_change (Callable, optional): You can provide a function that accepts at least one argument here. Every time you finish a
+            slider drag this function will be run - The function's first argument is provided with the slider value. Defaults to None.
+            label (str, optional): a text description visible in the slider. Defaults to None.
+            step_decimals (int, optional): 
+                step_decimals allows you to decide a have the slider only lock onto specific steps in your min-max range,
+                i.e. for step_decimals at 0: 0, 1, 2... at 1: 0.0, 0.1, 0.2,..., 
+                at 2: 0.00, 0.01, 0.02,... at -1: 0, 10, 100,... at -2: 0, 100, 10000... and so on'''. Defaults to None.
+            func_args (list, optional): extra arguments for the on_change function. Defaults to None.
+            func_kwargs (dict, optional): keyword arguments for the on_change function. Defaults to None.
+        """
         super().__init__(h=20, **kwargs)
         if value is None:
             self.value_ = (max + min) / 2
@@ -134,7 +161,8 @@ class Slider(Element):
         self.min, self.max = min, max
         self.update_width(width)
         self.isDragged = False
-        self.on_change = on_change
+        self.on_change, self.func_args, self.func_kwargs = on_change, func_args, func_kwargs
+
         self.label = None
         self.knob_height = self.h
         self.label = label
@@ -142,7 +170,8 @@ class Slider(Element):
             self.h = self.h *1.6
             while self.s.text_width(self.label) >= self.w - 1.5*self.knob_height:
                 self.label = self.label[:-1]
-        
+        self.step_decimals = step_decimals
+
     def run(self):
         with self.s.push_style():
             if(not self.isDragged and self.s.is_mouse_pressed):
@@ -152,15 +181,14 @@ class Slider(Element):
             if(self.isDragged and not self.s.is_mouse_pressed):
                 self.isDragged = False
                 if self.on_change is not None:
-                    self.on_change(self.value_)
+                    self.on_change(self.value_, *(self.func_args if self.func_args else ()),
+                                               **(self.func_kwargs if self.func_kwargs else {}))
             if(self.isDragged):
                 newVal = self.s.remap(self.s.mouse_x, self.x, self.x + self.w,
                                 self.min, self.max)
-                self.value_ = self.s.constrain(newVal, self.min, self.max)
-            
-            # # background cover
-            # self.s.fill(*self.fill); self.s.stroke(*self.fill); self.s.stroke_weight(self.stroke_weight)
-            # self.s.rect(self.x, self.y, self.w, self.h)
+                self.value_ = float(self.s.constrain(newVal, self.min, self.max))
+                if not self.step_decimals is None:
+                    self.value_ = round(self.value_, self.step_decimals)
 
             self.set_style(highlight=self.mouse_in(), pressed=self.isDragged)
             # subtract half heights from both edges that only the knob will cover when at the edge
@@ -178,11 +206,13 @@ class Slider(Element):
 
     def update_value(self, value):
         self.value_ = float(value)
+        if not self.step_decimals is None:
+            self.value_ = round(self.value_, self.step_decimals)
 
     value:float = property(fget=lambda self : self.value_, fset=update_value)
 
 class Text_Input(Element):
-    def __init__(self, w:int=150, on_enter:callable=None, use_callback:bool=True, 
+    def __init__(self, w:int=150, on_enter:Callable=None, use_callback:bool=True, 
                 label:str='enter input', default:str='', func_args:list=None, func_kwargs:dict=None, **kwargs):
         """A minimal text input field. Click to select and write a text input.
         When use_callback=True you will need to add a key_pressed callback from your sketch:
@@ -259,7 +289,7 @@ class Text_Input(Element):
 
     def process_key(self, key_char, key_code):
         if key_char == '\n':
-            if self.execute_func != None:
+            if not self.execute_func is None:
                 self.execute_func(self.input, *(self.func_args if self.func_args else ()),
                                            **(self.func_kwargs if self.func_kwargs else {}))
         elif key_code == 37:
@@ -286,6 +316,83 @@ class Text_Input(Element):
             self.input = value
         return self.input
 
+class Toggle(Element):
+    def __init__(self, value:bool=False, labels:str|list[str,str]='', 
+                 on_click:Callable=None, func_args:list=None, func_kwargs:dict=None, **kwargs):
+        """A True/False toggle that will switch upon click. You can get or override the current value
+        with the toggle.value variable.
+
+        Args:
+            value (bool, optional): Starting Value. Defaults to False.
+            labels (str | list[str,str], optional): The two label alternatives the toggle will show depending
+            on its state. If only a string is provided this string will always be shown instead. Defaults to ''.
+            on_click (Callable, optional): You can provide a function that accepts at least one argument here. Every time toggle click
+            this function will be run - The function's first argument is provided with the new toggle value. Defaults to None.
+            func_args (list, optional): extra arguments for the on_change function. Defaults to None.
+            func_kwargs (dict, optional): keyword arguments for the on_change function. Defaults to None.
+        """
+        super().__init__(**kwargs)
+
+        if type(labels) == str:
+            w = self.s.text_width(labels) + 30
+            self.single_label = True
+        else:
+            w = max(self.s.text_width(labels[0]), self.s.text_width(labels[1])) + 30
+            self.single_label = False
+        self.update_width(w)
+        self.on_click, self.func_args, self.func_kwargs = on_click, func_args, func_kwargs
+        self.prev_mouse_pressed = False
+
+        self.labels = labels
+        self.value = value
+
+    def run(self):
+        mouse_in = self.mouse_in()
+        
+        pressed = False
+        if mouse_in and self.s.is_mouse_pressed:
+            pressed = True
+            if not self.prev_mouse_pressed:
+                self.value = not self.value
+                if not self.on_click is None:
+                    self.on_click(self.value, *(self.func_args if self.func_args else ()),
+                                            **(self.func_kwargs if self.func_kwargs else {}))
+
+        with self.s.push_style():
+            self.set_style(highlight=mouse_in, pressed=pressed)
+            if self.value:
+                self.s.stroke(63,127,127)
+            else:
+                self.s.stroke(127,63,63)
+            self.s.rect(self.center[0], self.center[1], 
+                        self.w-self.stroke_weight, self.h-self.stroke_weight)
+            self.set_text_style()
+            if self.single_label:
+                self.s.fill(127,192,192) if self.value else self.s.fill(192,127,127)
+                self.s.text(self.labels, self.center[0], self.center[1])
+            elif self.value:
+                self.s.fill(127,192,192)
+                self.s.text(self.labels[1], self.center[0], self.center[1])
+            else:
+                self.s.fill(192,127,127)
+                self.s.text(self.labels[0], self.center[0], self.center[1])
+        
+        self.prev_mouse_pressed = self.s.is_mouse_pressed
+
+class Text(Element):
+    def __init__(self, text='', w=100, h=20, **kwargs):
+        super().__init__(w=w, h=h, **kwargs)
+        pass
+
+    def run():
+        pass
+
+class Minimal_Base(Element):
+    pass
+
+class Selector(Element):
+    pass
+
 def connect_keyboard(key_event):
     """A key_event forwarding function to be used within your sketch's def key_pressed().
     This allows text_inputs to read the keyboard.
@@ -302,12 +409,6 @@ def connect_keyboard(key_event):
     global text_inputs
     for text_input in text_inputs:
         text_input.read(key_event)
-
-class Selector(Element):
-    pass
-
-class Toggle(Element):
-    pass
 
 class Organizer:
     def __init__(self, sketch:py5.Sketch=None, pos:tuple[int,int]=(0,0), max_w=None, max_h=None):
