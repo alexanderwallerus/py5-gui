@@ -171,8 +171,8 @@ class Button(Element):
 
 class Slider(Element):
     def __init__(self, min:float=0.0, max:float=1.0, value:float=None, width:int=150,
-                 on_change:Callable=None, label:str=None, step_decimals:int=None, 
-                 func_args:list=None, func_kwargs:dict=None, **kwargs):
+                 on_change:Callable=None, on_change_while_dragged:bool=False, label:str=None, 
+                 step_decimals:int=None, func_args:list=None, func_kwargs:dict=None, **kwargs):
         """Slider Element
 
         Args:
@@ -183,6 +183,8 @@ class Slider(Element):
             value (float, optional): starting slider value - (min+max)/2 at default. Defaults to None.
             width (int, optional): pixel width of the slider. Defaults to 150.
             on_change (Callable, optional): You can provide a function that accepts at least one argument here. Every time you finish a
+            on_change_while_dragged (bool, optional): when a function was provided to on_change, whether to call it only when finishing
+                a slider drag, or throughout the time it is dragged
             slider drag this function will be run - The function's first argument is provided with the slider value. Defaults to None.
             label (str, optional): a text description visible in the slider. Defaults to None.
             step_decimals (int, optional): 
@@ -202,6 +204,7 @@ class Slider(Element):
         self.isDragged = False
         self.on_change, self.func_args, self.func_kwargs = on_change, func_args, func_kwargs
 
+        self.on_change_while_dragged = on_change_while_dragged
         self.label = None
         self.knob_height = self.h
         self.label = label
@@ -228,6 +231,9 @@ class Slider(Element):
                 self.value_ = float(self.s.constrain(newVal, self.min, self.max))
                 if not self.step_decimals is None:
                     self.value_ = round(self.value_, self.step_decimals)
+                if self.on_change_while_dragged and self.on_change is not None:
+                    self.on_change(self.value_, *(self.func_args if self.func_args else ()),
+                                               **(self.func_kwargs if self.func_kwargs else {}))
 
             self.set_style(highlight=self.mouse_in(), pressed=self.isDragged)
             # subtract half heights from both edges that only the knob will cover when at the edge
