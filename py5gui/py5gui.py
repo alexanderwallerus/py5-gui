@@ -26,8 +26,10 @@ def remap(value, inFrom, inTo, outFrom, outTo):
 def use_sketch(sketch:py5.Sketch):
     """Set the default sketch to be used for subsequently created elements 
     and hook the UI into the sketch's key_pressed for Text_Input elements.
-    Notably Text_Input elements will also require your sketch to possess a def key_pressed(key_event): function.
-    This can function can be empty i.e. - pass - but it has to exist for the Text_Input to hook into it.
+    Notably Text_Input elements will also require your class-mode sketch to eiter:
+        - call use_sketch(self) within a Sketch class's def __init__(self): after super().__init__() or 
+        - possess a def key_pressed(key_event): function. This can function can be empty i.e. - pass
+        either condition has to exist for the Text_Input to hook onto key_pressed.
     
     This function is only needed when using py5 in class mode. In module mode the single py5 instance
     will automatically be utilized for created elements.
@@ -42,6 +44,13 @@ def use_sketch(sketch:py5.Sketch):
 
     global s
     s = sketch
+
+    if not hasattr(s, 'key_pressed'):
+        # the sketch doesn't have a key_pressed function. The hook will only work if this key_pressed() exist 
+        # before settings() is run. If use_sketch() is run from __init__() and thus before settings()
+        # this block will auto-add an empty key_pressed() function to the sketch instance to enable the hook.
+        def _key_pressed(self, key_event): pass
+        s.key_pressed = _key_pressed.__get__(s)
     s._add_post_hook('key_pressed', 'key_reading_hook', forward_key)
 
 def forward_key(sketch:py5.Sketch):
