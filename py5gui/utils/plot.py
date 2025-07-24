@@ -24,8 +24,7 @@ class Plot:
         else:
             self.s = sketch
         
-        self.x = x; self.y = y
-        self.w = w; self.h = h
+        self.move(x, y, w, h)
 
         self.graphics = self.s.create_graphics(w, h)
 
@@ -52,6 +51,18 @@ class Plot:
         self.rii = self.xii + self.wii
         self.bii = self.yii + self.hii
 
+    def move(self, x:int=0, y:int=0, w:int=500, h:int=200):
+        """update the position and size of the plot.
+        When only rendering to a py5image x and y can be ignored.
+
+        Args:
+            x (int): upper left x position
+            y (int): upper left y position
+            w (int): width
+            h (int): height
+        """
+        self.x, self.y, self.w, self.h = x, y, w, h
+
     #-------------------------DATA ENTRY FUNCTIONS-------------------------
 
     def plot(self, xs:list, ys:list, color=None, stroke_weight=1, y_axis=0):
@@ -59,6 +70,7 @@ class Plot:
             return
         self.plots.append({'xs': np.array(xs), 'ys': np.array(ys), 'color': color,
                            'type': 'lines', 'stroke weight': stroke_weight, 'y axis': y_axis})
+        return self
 
     def scatter(self, xs:list, ys:list, color:list=None, diameter=7, 
                 order=None, marker='circle', stroke_weight=1, y_axis=0):
@@ -68,12 +80,14 @@ class Plot:
         self.plots.append({'xs': np.array(xs), 'ys': ys, 'color': color, 'type': 'scatter',
                            'diameter': diameter, 'marker': marker, 'stroke weight': stroke_weight,
                            'order': order, 'y axis': y_axis})
+        return self
     
     def axvline(self, xs:list, color=None, stroke_weight=1, y_axis=0):
         if len(xs) == 0:
             return
         self.plots.append({'xs': np.array(xs), 'ys': [], 'color': color,
                            'type': 'vlines', 'stroke weight': stroke_weight, 'y axis': y_axis})
+        return self
 
     def find_decimals(self, minn, maxn, decimals=None):
         form = 'f'
@@ -110,6 +124,8 @@ class Plot:
         maxn = np.max(nums);  minn = np.min(nums)
         if ylimit:
             maxn = ylimit[1]; minn = ylimit[0]
+            # create numbers in the range filling the required ylimit
+            nums = np.linspace(minn, maxn, 30)
         
         decimals, form = self.find_decimals(minn, maxn, decimals=decimals)
 
@@ -174,15 +190,15 @@ class Plot:
 
 
     def show(self, x_decimals=None, title=None, xlabel=None, ylabel=None, y_decimals=None,
-             ylimit=(None, None), to_py5image=False, y_decimals_1=None, ylimit_1=(None, None), full_y_limit_range=(True, True), 
+             ylimit=(None, None), to_py5image=False, y_decimals_1=None, ylimit_1=(None, None), autoscale_in_ylimits=(False,False), 
              empty_warning=True, show_outline=False, show_helper_lines=False):
         """If to_py5image=True, this function will not draw onto the plot's py5 instance, but instead return a py5_graphics
         object with the plot, which can be used as an image, when the plot doesn't need to be updated every frame.
         .show() can also draw a title, xlabel, and ylabel if provided with a string argument.
         .show() can further be provided with x_decimals= and y_decimals= for overriding the shown decimal places, and with a
-        ylimit=(lower, upper) to only plot numerical data above and/or below a certain point. 
+        ylimit=(lower, upper) to only plot numerical data above and/or below a certain min, max value pair.
         ylimit=(-7, None) for example would only plot data points with a y of -7 or higher.
-        full_y_limit_range=(False,False) preserves autoscaling while constraining values exceeding ylimit or ylimit_1 to within those ranges."""
+        autoscale_in_ylimits (default:(False,False)): when using ylimit and/or ylimit_1 reenable autoscaling within those limits."""
         if not to_py5image:
             p = self.s
         else:
@@ -193,8 +209,8 @@ class Plot:
         multi_y = [plt['y axis'] == 1 for plt in self.plots]
         multi_y = True if True in multi_y else False
 
-        full_y_limit_range = [True if full_y_limit_range[0] and ylimit[0] is not None and ylimit[1] is not None else False, 
-                              True if full_y_limit_range[1] and ylimit_1[0] is not None and ylimit_1[1] is not None else False]
+        ylimits_as_minmax = [True if (ylimit[0] is not None) and (ylimit[1] is not None) and (not autoscale_in_ylimits[0]) else False,
+                             True if (ylimit_1[0] is not None) and (ylimit_1[1] is not None) and (not autoscale_in_ylimits[1]) else False]
 
         #-------------------------NUMERICAL OR CATEGORICAL Y AXIS-------------------------
 
@@ -219,13 +235,13 @@ class Plot:
             all_ys = np.array([])
             for plt in plots:
                 # if ylimits exist, min/max out data points.
-                if ylimit[0]:
+                if ylimit[0] is not None:
                     plt['ys'] = np.maximum(plt['ys'], ylimit[0])
                     # could mask out these data points like this; but would need another plotable check for if all data is filtered out
                     # mask = plt['ys'] >= ylimit[0]
                     # plt['ys'] = plt['ys'][mask]
                     # plt['xs'] = plt['xs'][mask]
-                if ylimit[1]:
+                if ylimit[1] is not None:
                     plt['ys'] = np.minimum(plt['ys'], ylimit[1])
                 all_xs = np.append(all_xs, plt['xs'])
                 all_ys = np.append(all_ys, plt['ys'])           
@@ -266,11 +282,11 @@ class Plot:
         min_all_xs = np.min(total_xs);    max_all_xs = np.max(total_xs)
         if not y_categorical:
             min_all_ys = np.min(all_ys);    max_all_ys = np.max(all_ys)
-            if full_y_limit_range[0]:
+            if ylimits_as_minmax[0]:
                 min_all_ys = ylimit[0];    max_all_ys = ylimit[1]
         if multi_y and not y_categorical_1:
             min_all_ys_1 = np.min(all_ys_1);    max_all_ys_1 = np.max(all_ys_1)
-            if full_y_limit_range[1]:
+            if ylimits_as_minmax[1]:
                 min_all_ys_1 = ylimit_1[0];    max_all_ys_1 = ylimit_1[1]
 
         #-------------------------CALC DIMENSIONS-------------------------
@@ -307,18 +323,18 @@ class Plot:
         xticks = self.tick_pos_labels(p, total_xs, self.xii, self.rii, decimals=x_decimals)
         
         ylookup, ylookup_1 = None, None
-        mim_max_y = ylimit if full_y_limit_range[0] else None
+        min_max_y = ylimit if ylimits_as_minmax[0] else None
         if y_categorical:
             yticks, ylookup = self.tick_pos_labels_categorical(all_ys, self.yii, self.bii, horizontal=False, order=order)
         else:
-            yticks = self.tick_pos_labels(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals, ylimit=mim_max_y)
+            yticks = self.tick_pos_labels(p, all_ys, self.yii, self.bii, horizontal=False, decimals=y_decimals, ylimit=min_max_y)
         
         if multi_y:
-            mim_max_y_1 = ylimit_1 if full_y_limit_range[1] else None
+            min_max_y_1 = ylimit_1 if ylimits_as_minmax[1] else None
             if y_categorical_1:
                 yticks_1, ylookup_1 = self.tick_pos_labels_categorical(all_ys_1, self.yii, self.bii, horizontal=False, order=order_1)
             else:
-                yticks_1 = self.tick_pos_labels(p, all_ys_1, self.yii, self.bii, horizontal=False, decimals=y_decimals_1, ylimit=mim_max_y_1)
+                yticks_1 = self.tick_pos_labels(p, all_ys_1, self.yii, self.bii, horizontal=False, decimals=y_decimals_1, ylimit=min_max_y_1)
 
         #-------------------------DRAW TEXT-------------------------
         with p.push_style():
