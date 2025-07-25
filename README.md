@@ -13,6 +13,11 @@
 
 ## Plotting
 
+Example of plotting features:
+
+![plotting examples](readme_files/plot_examples.png)
+
+### basics
 - draw a plot in a py5 sketch draw(): function at coordinates 10, 10 with width and height 500, 200
 ```python
 def draw():
@@ -60,7 +65,10 @@ vertical_line_positions = [0, 100, 200, 300]
 plt.axvline(vertical_line_positions)
 ```
 
-### xlabel, ylabel
+### title, xlabel, ylabel
+```python
+plt.show(title='title text', xlabel='xlabel text', ylabel='ylabel text')
+```
 
 ### colors, weights and markers
 ```python
@@ -72,8 +80,8 @@ plt.axvline(vertical_line_positions, color=(127, 127, 127))
 plt.plot(b_xs, b_ys, color(127, 127, 127), stroke_weight=3)
 
 # draw a a specific color for each datapoint
-c_xs = [50, 75, 120]
-c_ys = [-50, 50, 0]
+c_xs = [ 50, 75, 120]
+c_ys = [-50, 50,   0]
 c_colors = [(0, 255, 255), (255, 255, 0), (0, 255, 255)] # cyan, yellow, cyan
 plt.scatter(c_xs, c_ys, color=c_colors)
 
@@ -85,7 +93,7 @@ plt.scatter(b_xs, b_ys, marker='line')
   - this is a useful way to add a visual category information to your data points
 - extra options for scatter plots:
   - marker types: `circle`, `line`, `cross`, `square`, `triangle`
-  - `marker=` can also receive a string/character (e.g. 'o', '+', '*')
+  - `marker=` can also receive a string/character (i.e. 'o', '+', '*')
   - `stroke_weight=` also controls the thickness of the line and cross markers. `diameter=` can control the size of square and circle markers,
 
 ### multiple plots in the same space
@@ -94,9 +102,9 @@ plt.scatter(b_xs, b_ys, marker='line')
     plot0_ys = [0, -1, 1]
     
     plot1_xs = [-0.75, -0.25, 0.25, 0.75]
-    plot1_ys = [0.5, -0.5, 0.5, -0.5]
+    plot1_ys = [ 0.5,  -0.5,  0.5, -0.5 ]
 
-    scatter_xs = [0.5, 0.75, 1.0]
+    scatter_xs = [0.5,  0.75,  1.0 ]
     scatter_ys = [0.75, 0.25, -0.25]
 
     vlines = [1.5] # only 1 at position x=1.5
@@ -117,15 +125,45 @@ plt.scatter(b_xs, b_ys, marker='line')
 
 ### categorical plots
 
+- for data that maps x values to categorical y instead of a numerical y
+
 ```python
-event_times = []
-event_categories = []
+event_times = [0, 100, 200, 300, 400, 500]
+event_categories = ['a', 'c', 'a', 'b', 'b', 'a']
+plt.scatter(event_times, event_categories, order=['a', 'b', 'c', 'd'])
 ```
-- order
+- `order=` is optional and allows controling the order of events top to bottom.
+  - all categories within order will be included - this is useful for consistent plots when categories i.e. here 'd' don't always happen
+- `color=` can also be used to strengthen the information.
+- alternatively `color=` can be used in non-categorical plots to color individual datapoints by a category
+- You can mix numerical and categorical plots by using multiple y-axis, i.e. numerical data on `yaxis=0` and categorical data on `yaxis=1`
 
 ### multiple y-axis
 
+```python
+xs_ax0 = [0,   1,  2,  3]
+ys_ax0 = [20, 25, 15, 25]
+
+xs_ax1 = [ 0.1,   0.9,   2.2,  3.1]
+ys_ax1 = [ 0.04,  0.15, -0.09, 0.21]
+
+plt.plot(xs_ax0, ys_ax0, yaxis=0, color=(0, 255, 255))
+plt.plot(xs_ax1, ys_ax1, yaxis=1, color=(255, 0, 255))
+plt.show()
+```
+- adding an axis is useful when data happens in the same x range i.e. same time interval, but is disparate in its numererical range
+- each axis can be numerical or categorical allowing you to combine those 2 types of data in one plot
+- axis 1 can receive its own set of optional scale configurations during plotting: `ylimit_1=`, `autoscale_in_ylimits_1=`, `y_decimals_1=`
+- like with the default yaxis=0, many plots can be plotted together within the yaxis=1
+- currently up to 2 y-axis yaxis=0 and yaxis are supported
+
 ### render to py5image instead of into the sketch
+```python
+img = plt.show(to_py5image=True)
+# draw the image onto some coordinates
+py5.image(img, 10, 10)
+```
+- instead of directly plotting into the sketch you can plot into a py5image that can be reused or saved with more flexibility.
 
 ### set the y axis range between 0 and 3
 ```python
@@ -147,5 +185,16 @@ my_sketch = self
 py5gui.Plot(x=10, y=10, w=500, h=200, sketch=my_sketch)
 ```
 ### plot legends
+```python
+py5gui.legend({'graph 0': (0, 255, 255), 'graph 1': (255, 0, 0)}, 10, 10)
+```
+- the fist argument is a color-lookup dictionary of labels and colors, the 2nd and 3rd are the x and y coordinates to draw the legend
+- optional arguments
+  - `horizontal=False` to draw the legend items vertically
+  - `frame=False` to not draw a boundary rectangle
+  - `img = py5gui.legend(..., to_graphics=True)` allows rendering the legend into a py5image like with the [plot analog](#render-to-py5image-instead-of-into-the-sketch)
+  - `sketch=` to specify a py5 sketch like with the [plot analog](#define-the-py5-sketch-to-be-used-in-py5-class-mode-multi-sketch-applications)
 
-### axis decimal places
+### further customization
+- `plt.show(x_decimals=0, y_decimals=2, y_decimals_1=0)` override the automatic number of decimal places on the respective axis
+- `plt.show(show_outlines=True)` draw a boundary around the plot
